@@ -1,0 +1,3284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rota</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFFFFF;
+    --paper:#F7F7F7;
+    --mint:#EDFFE9;
+    --ink:#004654;
+    --ink-soft:#1D4249;
+    --ink-faint:#4A6167;
+    --line:rgba(0,70,84,0.22);
+    --team-accent:#9999FF;
+    --gold:#FFE13B;
+    --gold-soft:#FFEEBD;
+    --sage:#9999FF;
+    --sage-soft:#CECEFF;
+    --sage-dark:#33366B;
+    --brick:#FFA580;
+    --brick-soft:#FFD2BF;
+    --brick-text:#8A3A1E;
+    --sidebar:#004654;
+    --sidebar-ink:#EDFFE9;
+    --radius:16px;
+    --shadow: 0 2px 4px rgba(0,70,84,0.10), 0 8px 24px rgba(0,70,84,0.12);
+  }
+  *{box-sizing:border-box;}
+  select{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 8l5 5 5-5' fill='none' stroke='%23004654' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 9px center; background-size:12px;
+    padding-right:26px !important; cursor:pointer;
+  }
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{ font-family:'Fraunces',Georgia,serif; }
+  ::selection{ background:var(--gold-soft); }
+  a{color:inherit;}
+  button{ font-family:inherit; cursor:pointer; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible{
+    outline:2px solid var(--gold); outline-offset:2px;
+  }
+
+  .app{
+    display:flex; align-items:flex-start; gap:26px;
+    max-width:1360px; margin:26px auto; padding:0 24px;
+    min-height:calc(100vh - 52px);
+  }
+
+  .sidebar{
+    width:224px; flex-shrink:0; display:flex; flex-direction:column; gap:16px;
+    position:sticky; top:26px; max-height:calc(100vh - 52px); overflow-y:auto;
+  }
+  .sidebar-panel{
+    background:var(--sidebar); color:var(--sidebar-ink);
+    padding:26px 16px; display:flex; flex-direction:column; gap:6px;
+    border-radius:20px;
+  }
+  .brand{ display:flex; align-items:center; gap:8px; padding:0 8px 22px 8px; }
+  .brand svg{ width:30px; height:20px; flex-shrink:0; }
+  .brand-name{ font-family:'Fraunces',serif; font-weight:600; font-size:21px; letter-spacing:0.2px; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px;
+    color:var(--sidebar-ink); opacity:0.72; text-decoration:none; font-size:13.5px; font-weight:500;
+    background:none; border:none; width:100%; text-align:left;
+  }
+  .nav-item .num{ font-family:'IBM Plex Mono',monospace; font-size:11px; opacity:0.7; width:16px; }
+  .nav-item:hover{ opacity:1; background:rgba(237,255,233,0.08); }
+  .nav-item.active{ opacity:1; background:rgba(237,255,233,0.16); }
+  .sidebar-foot{ margin-top:auto; padding:10px 12px; font-size:11.5px; opacity:0.5; line-height:1.5; }
+  .team-switcher{ padding:2px 8px 4px 8px; }
+  .team-switcher label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--sidebar-ink); opacity:0.6; margin-bottom:5px; }
+  .team-switcher select, .team-switcher .fsel-trigger{ width:100%; font-size:13px; font-weight:600; padding:7px 9px; }
+
+  .app.mode-viewer .admin-only{ display:none !important; }
+  .app.mode-admin .viewer-only{ display:none !important; }
+  .viewer-identity-box, #viewer-identity-box{ padding:2px 8px 16px 8px; margin-bottom:6px; border-bottom:1px solid rgba(237,255,233,0.14); }
+  .muted-on-dark{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--sidebar-ink); opacity:0.6; margin-bottom:5px; }
+  .viewer-identity-name{ font-family:'Fraunces',serif; font-weight:600; font-size:17px; color:var(--sidebar-ink); margin-bottom:6px; }
+  .link-on-dark{ background:none; border:none; color:var(--sidebar-ink); opacity:0.65; font-size:11.5px; text-decoration:underline; padding:0; cursor:pointer; }
+  .link-on-dark:hover{ opacity:1; }
+  .mode-switch{ padding:12px 12px 4px 12px; }
+
+  .identity-modal{ display:none; position:fixed; inset:0; background:rgba(0,70,84,0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index:100; align-items:center; justify-content:center; padding:20px; }
+  /* Opaque, present from first paint (no JS needed) — covers the whole app until the access
+     check resolves, so nothing ever flashes on screen before someone is known to be allowed
+     to see it. Only JS removes it, once we actually know the answer. */
+  #boot-cover{ position:fixed; inset:0; background:var(--sidebar); z-index:1000; display:flex; align-items:center; justify-content:center; }
+  #boot-cover .boot-spinner{ width:34px; height:34px; border-radius:50%; border:3px solid rgba(237,255,233,0.25); border-top-color:var(--sidebar-ink); animation:boot-spin 0.8s linear infinite; }
+  @keyframes boot-spin{ to{ transform:rotate(360deg); } }
+  .identity-modal.open{ display:flex; }
+  .identity-card{ background:var(--paper); border-radius:16px; padding:28px 30px; width:340px; max-width:100%; box-shadow:var(--shadow); }
+  .identity-card h2{ margin:0; font-size:21px; font-family:'Fraunces',serif; }
+  .link-plain{ background:none; border:none; color:var(--ink-soft); font-size:12px; text-decoration:underline; padding:0; cursor:pointer; display:block; margin-top:16px; }
+  .link-plain:hover{ color:var(--ink); }
+
+  .bar.me{ box-shadow:0 0 0 2px var(--gold); }
+  .you-tag{ background:var(--gold); color:var(--ink); font-size:9px; font-weight:700; padding:1px 5px; border-radius:6px; margin-left:4px; }
+  .hol-bar-locked{ cursor:default; }
+  .storage-banner{
+    display:none; align-items:center; gap:8px; background:var(--brick-soft); color:var(--brick-text);
+    border:1px solid var(--brick); border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600;
+    margin-bottom:18px;
+  }
+
+  .main{ flex:1; min-width:0; padding:6px 2px 40px 2px; }
+  .team-switcher .fsel-trigger{ border-left:5px solid var(--team-accent) !important; transition:border-color 0.2s ease; }
+  .page-head{
+    margin-bottom:22px; border-radius:var(--radius); padding:18px 22px 20px 22px;
+    background: color-mix(in srgb, var(--team-accent) 16%, white);
+    border:1px solid var(--line); transition: background 0.2s ease;
+  }
+  .page-head h1{ font-size:26px; margin:0 0 4px 0; font-weight:600; }
+  .page-head p{ margin:0; color:var(--ink-soft); font-size:13.5px; max-width:640px; line-height:1.5; }
+
+  .card{
+    background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px 22px; margin-bottom:20px;
+  }
+  .card h3{ font-size:15px; margin:0 0 12px 0; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .card .hint{ color:var(--ink-faint); font-size:12.5px; margin:-8px 0 14px 0; }
+
+  #tab-org .card{ background:var(--sage-soft); }
+  #tab-tasks .card{ background:var(--brick-soft); }
+  #tab-requirements .card{ background:var(--gold-soft); }
+  #tab-schedule .card, #tab-myschedule .card{ background:var(--mint); }
+  #tab-balance .card{ background:var(--sage-soft); }
+  #tab-holidays .card, #tab-myholidays .card{ background:var(--gold-soft); }
+  #tab-data .card{ background:var(--paper); }
+  #tab-schedule .sched-table td.taskname, #tab-myschedule .sched-table td.taskname{ background:var(--mint); }
+
+  table{ border-collapse:collapse; width:100%; font-size:13px; }
+  th{ text-align:left; font-weight:600; color:var(--ink-soft); font-size:11.5px; text-transform:uppercase; letter-spacing:0.04em; padding:8px 10px; border-bottom:2px solid var(--line); white-space:nowrap; }
+  td{ padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  tr:last-child td{ border-bottom:none; }
+  tr:hover td{ background:rgba(192,147,42,0.05); }
+  .lvl-pill{ display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; font-family:'IBM Plex Mono',monospace; }
+  .lvl-IC1{ background:var(--sage-soft); color:var(--ink); }
+  .lvl-IC2{ background:var(--gold-soft); color:var(--ink); }
+  .lvl-IC3{ background:var(--brick-soft); color:var(--ink); }
+  .lvl-Manager{ background:var(--ink); color:var(--sidebar-ink); }
+
+  .req-table th:not(:first-child), .req-table td:not(:first-child){ text-align:center; }
+  .req-table .req-total-row td{ border-top:2px solid var(--line); background:rgba(192,147,42,0.06); }
+  .req-table .req-team-row td{ background:rgba(23,50,58,0.02); color:var(--ink-soft); }
+  .req-table .req-diff-row td{ border-top:1px solid var(--line); }
+  .req-table .diff-ok{ color:#2f6b3a; }
+  .req-table .diff-short{ color:var(--brick-text); }
+
+  .m-level-cell{ display:flex; flex-direction:column; gap:2px; white-space:nowrap; }
+  .chip-check{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; border:1.5px solid var(--line); font-size:12px; font-weight:600; color:var(--ink-soft); background:#fff; cursor:pointer; }
+  .chip-check:has(:checked){ background:var(--sage-soft); border-color:var(--sage); color:var(--ink); }
+  .chip-check input{ accent-color:var(--ink); width:13px; height:13px; }
+  .team-table td:nth-child(2){ width:84px; }
+  .team-table th.task-col{
+    writing-mode: vertical-rl; transform:rotate(180deg);
+    height:132px; width:30px; max-width:30px; white-space:nowrap;
+    font-size:10.5px; padding:6px 4px 10px 4px; vertical-align:bottom; text-align:left;
+  }
+  .team-table td.task-col{ width:30px; max-width:30px; }
+
+  input[type=text], input[type=email], input[type=number], input[type=date], select, textarea, .fsel-trigger{
+    font-family:inherit; font-size:13px; padding:6px 9px; border:1px solid var(--line); border-radius:8px;
+    background:#fff; color:var(--ink); width:100%;
+  }
+  input[type=number]{ width:56px; text-align:center; }
+  textarea{ resize:vertical; }
+
+  .checkbox{
+    width:19px; height:19px; border:1.5px solid var(--ink-faint); border-radius:5px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; background:#fff;
+  }
+  .checkbox.checked{ background:var(--sage); border-color:var(--sage); color:var(--ink); }
+  .checkbox svg{ width:12px; height:12px; display:none; }
+  .checkbox.checked svg{ display:block; }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:6px; padding:8px 15px; border-radius:9px; border:1px solid var(--ink);
+    background:var(--ink); color:var(--bg); font-size:13px; font-weight:600;
+  }
+  .btn:hover{ background:#003038; }
+  .btn.secondary{ background:transparent; color:var(--ink); border-color:var(--line); }
+  .btn.secondary:hover{ background:rgba(23,50,58,0.05); }
+  .btn.small{ padding:5px 10px; font-size:12px; }
+  .btn.danger{ background:var(--brick); border-color:var(--brick); color:var(--ink); }
+  .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .spacer{ flex:1; }
+  .muted{ color:var(--ink-faint); }
+  .toast{
+    position:fixed; bottom:22px; right:22px; background:var(--ink); color:var(--bg); padding:11px 18px;
+    border-radius:10px; font-size:13px; box-shadow:var(--shadow); opacity:0; transform:translateY(8px);
+    transition:all 0.25s ease; pointer-events:none; z-index:50; display:flex; align-items:center; gap:12px;
+  }
+  .toast.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
+  #toast-undo{ background:none; border:none; color:var(--gold); font-weight:700; font-size:13px; text-decoration:underline; cursor:pointer; padding:0; white-space:nowrap; }
+  #toast-undo:hover{ color:var(--gold-soft); }
+
+  .squiggle{ display:inline-block; }
+
+  .sched-table{ border:1px solid var(--line); border-radius:10px; overflow:hidden; table-layout:fixed; width:100%; }
+  .sched-table th, .sched-table td{ text-align:center; border:1px solid var(--line); }
+  .sched-table thead th{ background:var(--gold-soft); border-bottom:1px solid var(--line); padding:10px 6px; }
+  .sched-table th:first-child, .sched-table td.taskname{ width:15%; }
+  .sched-table td.taskname{
+    text-align:left; font-weight:600; position:sticky; left:0;
+    background:var(--paper); z-index:2; font-size:13.5px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .sched-table thead th:first-child{ position:sticky; left:0; z-index:3; background:var(--gold-soft); text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sched-table tbody tr:nth-child(even) td:not(.taskname){ background:rgba(23,50,58,0.02); }
+  .sched-table thead th:nth-child(3), .sched-table thead th:nth-child(5), .sched-table thead th:nth-child(7),
+  .sched-table tbody td:nth-child(3):not(.taskname), .sched-table tbody td:nth-child(5):not(.taskname), .sched-table tbody td:nth-child(7):not(.taskname){
+    background-image: linear-gradient(rgba(23,50,58,0.028), rgba(23,50,58,0.028));
+  }
+  .sched-table tbody tr:hover td{ background-color:rgba(192,147,42,0.08); }
+  .sched-table tbody tr:hover td.taskname{ background-color:var(--gold-soft); }
+  .sched-table td{ padding:10px 6px; vertical-align:top; min-width:0; }
+  @media (max-width: 900px){
+    .sched-table{ table-layout:auto; width:auto; min-width:100%; }
+    .sched-table th:not(:first-child), .sched-table td:not(.taskname){ min-width:110px; }
+  }
+  .day-col-head{ display:flex; flex-direction:column; align-items:center; gap:1px; }
+  .day-col-head .d{ font-size:14px; font-family:'Fraunces',serif; font-weight:600; color:var(--ink); text-transform:none; letter-spacing:0; }
+  .day-col-head .n{ font-size:10.5px; color:var(--ink-soft); font-weight:500; text-transform:none; }
+  .chipwrap{ display:flex; flex-direction:column; gap:5px; min-height:26px; }
+  .bar-item{ position:relative; }
+  .bar{
+    display:flex; align-items:center; justify-content:space-between; gap:6px;
+    background:var(--ink); color:var(--sidebar-ink); padding:7px 10px; border-radius:20px;
+    font-size:12px; font-weight:700; white-space:nowrap; cursor:pointer; border:none; width:100%;
+    font-family:inherit; text-align:left; transition:filter 0.12s ease;
+  }
+  .bar:hover{ filter:brightness(1.06); }
+  .bar .bar-name{ display:flex; align-items:center; gap:6px; flex:1 1 auto; min-width:0; }
+  .bar .bar-name-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar.short{ box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7); }
+  .bar.needs-replace{ box-shadow: 0 0 0 2px var(--brick); }
+  .bar.needs-replace.me{ box-shadow: 0 0 0 2px var(--brick), 0 0 0 4px var(--gold); }
+  .your-week-empty{ color:var(--ink-faint); font-size:13px; }
+  .ywd-chip{ display:block; width:100%; font-size:12px; font-weight:700; padding:6px 12px; border-radius:20px; cursor:pointer; border:none; text-align:left; }
+  .ywd-chip:hover{ filter:brightness(0.94); }
+  .grid-flash{ animation: gridFlash 1.1s ease; }
+  @keyframes gridFlash{ 0%{ box-shadow:0 0 0 3px var(--gold); } 100%{ box-shadow:0 0 0 0px transparent; } }
+  .bar-menu{
+    display:none; position:relative; width:100%; margin-top:4px; z-index:20;
+    border-radius:14px; box-shadow:var(--shadow); overflow:hidden;
+    animation: barMenuGrow 0.13s ease-out;
+  }
+  @keyframes barMenuGrow{ 0%{ opacity:0; transform:scaleY(0.85); transform-origin:top; } 100%{ opacity:1; transform:scaleY(1); } }
+  .bar-menu.open{ display:block; }
+  .bar-menu-item{
+    display:block; width:100%; text-align:left; background:none; border:none; padding:9px 13px;
+    font-size:12.5px; font-weight:600; color:inherit; white-space:nowrap;
+  }
+  .bar-menu-item:hover{ background:rgba(0,0,0,0.08); }
+  .bar-menu-item[data-action="delete"]{ color:var(--brick-text); }
+  .bar-menu-item[data-action="delete"]:hover{ background:rgba(138,58,30,0.14); }
+  .add-select{ margin-top:7px; opacity:0.45; transition:opacity 0.15s ease; }
+  .btn-remove-x{
+    width:26px; height:26px; border-radius:50%; border:1px solid var(--brick);
+    background:var(--brick-soft); color:var(--brick-text); font-size:15px; font-weight:700;
+    line-height:1; cursor:pointer; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
+    transition:background 0.12s ease;
+  }
+  .btn-remove-x:hover{ background:var(--brick); color:#fff; }
+  .row-actions{ display:flex; gap:6px; align-items:center; }
+  .cell-daterange{ font-size:10.5px; margin-top:6px; font-weight:600; display:inline-block; padding:1px 8px; border-radius:8px; background:var(--sage-soft); color:var(--ink); }
+  .task-lvl-tag{ font-size:9.5px; font-weight:700; color:var(--ink-soft); background:var(--sage-soft); border-radius:6px; padding:1px 6px; margin-left:6px; letter-spacing:0.02em; }
+  .audit-log-list{ display:flex; flex-direction:column; gap:2px; max-height:420px; overflow-y:auto; }
+  .audit-log-row{ display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; padding:8px 4px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .audit-log-when{ color:var(--ink-faint); font-size:11px; width:150px; flex-shrink:0; }
+  .audit-log-who{ font-weight:700; width:100px; flex-shrink:0; }
+  .audit-log-action{ font-weight:600; }
+  .audit-log-detail{ font-size:11.5px; }
+  td:hover .add-select{ opacity:1; }
+  .add-select select, .add-select .fsel-trigger{
+    font-size:11px; padding:4px 24px 4px 12px; border:1.5px dashed var(--ink-faint); border-radius:20px;
+    background:transparent; color:var(--ink-soft); font-weight:600; text-align:center;
+  }
+  .add-select select:hover, .add-select .fsel-trigger:hover{ border-color:var(--gold); color:var(--ink); }
+
+  .info-card{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; background:var(--paper); }
+  .member-card, .task-card{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; background:var(--paper); }
+  .member-card-head, .task-card-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .member-card-head .m-name, .task-card-head .task-name{ flex:1; font-weight:700; font-size:14.5px; min-width:0; }
+  .member-card-grid, .task-card-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:14px; margin-bottom:14px; }
+  .field label{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin-bottom:5px; }
+  .m-level-cell{ display:flex; flex-wrap:wrap; gap:8px 12px; padding-top:4px; }
+  .member-card-tasks > label{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin-bottom:7px; }
+  .task-elig-grid{ display:flex; flex-wrap:wrap; gap:7px; }
+  .task-elig-chip{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 12px 5px 6px; border-radius:20px;
+    border:1.5px solid var(--line); font-size:12px; font-weight:600; color:var(--ink-soft); background:#fff; cursor:pointer;
+  }
+  .task-elig-chip:has(.checked){ background:var(--sage-soft); border-color:var(--sage); color:var(--ink); }
+
+  .fsel{ position:relative; width:100%; }
+  .fsel-native{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
+  .fsel-trigger{
+    width:100%; text-align:left; cursor:pointer; font-family:inherit; display:flex; align-items:center;
+    justify-content:space-between; gap:6px; overflow:hidden;
+  }
+  .fsel-trigger > span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fsel-trigger::after{
+    content:''; flex-shrink:0; width:12px; height:12px; background-repeat:no-repeat; background-size:contain;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 8l5 5 5-5' fill='none' stroke='%23004654' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .fsel-trigger:disabled{ opacity:0.55; cursor:default; }
+  .fsel-menu{
+    display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:60;
+    background:var(--gold-soft); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow);
+    max-height:240px; overflow-y:auto; padding:4px;
+  }
+  .fsel-menu.open{ display:block; animation: barMenuGrow 0.13s ease-out; }
+  .fsel-opt{
+    display:flex; align-items:center; min-height:32px; width:100%; text-align:left; background:none; border:none;
+    border-radius:7px; padding:7px 10px; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer;
+    white-space:normal; word-break:break-word; line-height:1.3;
+  }
+  .fsel-opt:hover{ background:rgba(0,0,0,0.07); }
+  .fsel-opt.active{ background:rgba(0,0,0,0.09); }
+  .fsel-opt:disabled{ opacity:0.45; cursor:default; }
+  .team-row{ display:flex; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); }
+  .team-row:last-child{ border-bottom:none; }
+  .team-row .team-name{ width:190px; font-weight:600; }
+  .team-row .team-manager{ width:190px; }
+  .task-card.dragging{ opacity:0.4; }
+  .task-card.drag-over{ box-shadow: inset 0 2px 0 var(--gold); }
+  .task-card-head .drag-handle{ margin-right:2px; }
+  .same-week-toggle{ display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; padding-top:2px; }
+  .drag-handle{ cursor:grab; color:var(--ink-faint); font-size:15px; padding:0 4px 0 0; user-select:none; line-height:1; }
+  .drag-handle:active{ cursor:grabbing; }
+  .spanned-cell{ background:rgba(192,147,42,0.06) !important; }
+  .spanned-cell .bar{ justify-content:center; }
+
+  .week-nav{ display:flex; align-items:center; gap:10px; }
+  .week-nav button{ background:var(--paper); border:1px solid var(--line); border-radius:8px; width:30px; height:30px; font-size:15px; }
+  .week-nav .wk-label{ font-family:'Fraunces',serif; font-weight:600; font-size:16px; min-width:210px; text-align:center; }
+
+  .bal-rows{ display:flex; flex-direction:column; }
+  .bal-row{ display:flex; align-items:center; gap:12px; padding:8px 2px; border-bottom:1px solid var(--line); }
+  .bal-row:last-child{ border-bottom:none; }
+  .bal-name{ flex:0 0 190px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .bal-next{ font-size:10px; font-weight:600; background:var(--gold-soft); color:var(--ink); padding:2px 7px; border-radius:8px; }
+  .bal-bar-wrap{ flex:1; height:8px; border-radius:5px; background:var(--line); overflow:hidden; }
+  .bal-bar-wrap > div{ height:100%; background:var(--sage); border-radius:5px; }
+  .bal-count{ width:26px; text-align:right; font-weight:600; font-size:13px; }
+
+  .hol-assign-row{ margin-top:12px; }
+  .cal-legend{ display:flex; gap:18px; margin-bottom:12px; font-size:12px; color:var(--ink-soft); }
+  .cal-legend-item{ display:flex; align-items:center; gap:7px; }
+  .cal-legend-swatch{ width:16px; height:16px; border-radius:5px; background:var(--sage); display:inline-flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:800; }
+  .cal{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .cal .dow{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint); text-align:center; padding-bottom:4px; }
+  .cal .day{
+    border:1px solid var(--line); border-radius:9px; min-height:68px; padding:7px; background:#fff;
+    cursor:pointer; position:relative; font-size:11.5px;
+  }
+  .cal .day.other-month{ opacity:0.35; }
+  .cal .day.weekend{ background:#F1F1FB; }
+  .cal .day .dnum{ font-weight:700; font-family:'IBM Plex Mono',monospace; font-size:12px; }
+  .cal .day.day-selected{ box-shadow: inset 0 0 0 2px var(--gold); background:var(--gold-soft); }
+  .hol-bars{ display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+  .hol-bar{
+    font-size:10.5px; font-weight:700; padding:0 4px 0 8px; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; cursor:pointer; min-height:21px; display:flex; align-items:center; justify-content:space-between; gap:4px;
+  }
+  .hol-bar-gap{ min-height:21px; }
+  .hol-bar:hover{ filter:brightness(0.93); }
+  .hol-bar .sick-badge{ display:inline-flex; align-items:center; justify-content:center; width:13px; height:13px; border-radius:50%; background:rgba(255,255,255,0.4); font-weight:800; font-size:9.5px; flex-shrink:0; }
+  .hol-bar-x{ opacity:0; flex-shrink:0; font-size:13px; line-height:1; width:15px; height:15px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.25); transition:opacity 0.1s ease; }
+  .hol-bar:hover .hol-bar-x{ opacity:1; }
+
+  code, .mono{ font-family:'IBM Plex Mono',monospace; }
+  ul.plain{ list-style:none; margin:0; padding:0; }
+
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  @media (max-width: 860px){
+    .app{ flex-direction:column; margin:0; padding:12px; gap:0; max-width:100%; min-height:0; }
+    .sidebar{ width:100%; position:static; max-height:none; gap:12px; }
+    .main{ padding:22px 16px 50px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="boot-cover"><div class="boot-spinner" aria-label="Loading" role="status"></div></div>
+
+<div class="app mode-viewer" id="app-root">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-panel">
+      <div class="brand">
+        <svg viewBox="0 0 60 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 20 C 14 8, 22 8, 28 18 C 32 25, 38 25, 40 18" stroke="#EDFFE9" stroke-width="3.4" stroke-linecap="round"/>
+          <circle cx="47" cy="15" r="3.4" fill="#EDFFE9"/>
+        </svg>
+        <div class="brand-name">Rota</div>
+      </div>
+
+      <div id="viewer-identity-box">
+        <span class="muted-on-dark">Signed in as</span>
+        <div class="viewer-identity-name" id="viewer-identity-name">—</div>
+        <button class="link-on-dark" id="btn-change-identity">Sign out</button>
+      </div>
+
+      <div class="team-switcher admin-only">
+        <label for="team-switch-select">Viewing team</label>
+        <select id="team-switch-select"></select>
+      </div>
+    </div>
+
+    <div class="sidebar-panel">
+      <button class="nav-item admin-only active" data-tab="org"><span class="num">01</span> Teams &amp; People</button>
+      <button class="nav-item admin-only" data-tab="tasks"><span class="num">02</span> Task rules</button>
+      <button class="nav-item admin-only" data-tab="requirements"><span class="num">03</span> Weekly needs</button>
+      <button class="nav-item admin-only" data-tab="schedule"><span class="num">04</span> Schedule</button>
+      <button class="nav-item admin-only" data-tab="balance"><span class="num">05</span> Rotation balance</button>
+      <button class="nav-item admin-only" data-tab="holidays"><span class="num">06</span> Holidays</button>
+      <button class="nav-item admin-only" data-tab="data"><span class="num">07</span> Data</button>
+
+      <button class="nav-item viewer-only active" data-tab="myschedule">My schedule</button>
+      <button class="nav-item viewer-only" data-tab="myholidays">My holidays</button>
+
+      <div class="sidebar-foot admin-only">Autosaves to the cloud when that's available — check the Data tab to back up or move your data manually otherwise.</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="storage-banner" id="storage-banner">
+      Autosave isn't reaching the cloud right now — changes only live in this browser tab. Use <strong>Data → Export</strong> before closing this tab, and import it again next time.
+    </div>
+
+    <!-- TEAMS & PEOPLE TAB -->
+    <div class="tab-panel active" id="tab-org">
+      <div class="page-head">
+        <h1>Teams &amp; People</h1>
+        <p>Create teams and set a manager for each, then add people, assign them to a team, and set which tasks they can work. This is the source of truth the scheduler reads from.</p>
+      </div>
+      <div class="card">
+        <h3>Teams</h3>
+        <div class="row" style="margin-bottom:14px;">
+          <button class="btn secondary small" id="btn-add-team">+ Add team</button>
+          <div class="spacer"></div>
+          <button class="btn small" id="btn-save-teams">Save changes</button>
+        </div>
+        <div id="teams-list"></div>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <h3>People <span class="muted" style="font-weight:400; font-size:12px;" id="people-team-label"></span></h3>
+        <div class="row" style="margin-bottom:14px;">
+          <button class="btn secondary small" id="btn-add-member">+ Add person</button>
+          <div class="spacer"></div>
+          <span class="muted" style="font-size:12px;">Each person has their own Save button below</span>
+        </div>
+        <div id="team-table-wrap"></div>
+      </div>
+      <div class="card">
+        <h3>Unassigned <span class="muted" style="font-weight:400; font-size:12px;">— people without a team yet. This is where new logins will land once accounts are live, ready for you to place them.</span></h3>
+        <div id="unassigned-list"></div>
+      </div>
+    </div>
+
+    <!-- TASKS TAB -->
+    <div class="tab-panel" id="tab-tasks">
+      <div class="page-head">
+        <h1>Task rules</h1>
+        <p>The conditions each task runs under — who's allowed to do it, and whether it can't be combined with another task on the same day.</p>
+      </div>
+      <div class="card" id="tasks-card">
+        <div class="row" style="margin-bottom:6px;">
+          <button class="btn secondary small" id="btn-add-task">+ Add task</button>
+          <div class="spacer"></div>
+          <span class="muted" style="font-size:12px;">Each task has its own Save button below</span>
+        </div>
+        <div id="tasks-list"></div>
+      </div>
+    </div>
+
+    <!-- REQUIREMENTS TAB -->
+    <div class="tab-panel" id="tab-requirements">
+      <div class="page-head">
+        <h1>Weekly needs</h1>
+        <p>How many people each task needs, per weekday. This is what the scheduler tries to fill.</p>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <div class="row" style="margin-bottom:10px;"><div class="spacer"></div><button class="btn small" id="btn-save-req">Save changes</button></div>
+        <div id="req-table-wrap"></div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE TAB -->
+    <div class="tab-panel" id="tab-schedule">
+      <div class="page-head">
+        <h1>Schedule</h1>
+        <p>Who's on what, day by day — generated automatically, and balanced against how often everyone has already done each task.</p>
+      </div>
+      <div class="card">
+        <div class="row">
+          <div class="week-nav">
+            <button id="wk-prev">‹</button>
+            <div class="wk-label" id="wk-label"></div>
+            <button id="wk-next">›</button>
+          </div>
+          <div class="spacer"></div>
+          <span class="muted" id="sched-status"></span>
+          <button class="btn secondary small" id="btn-clear-week">Clear week</button>
+          <button class="btn small" id="btn-generate">Generate schedule</button>
+        </div>
+      </div>
+      <div class="card" id="your-week-card">
+        <h3>Your tasks this week</h3>
+        <div id="your-week-summary" style="overflow-x:auto;"></div>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <h3>Week grid</h3>
+        <div id="sched-grid-wrap"></div>
+      </div>
+    </div>
+
+    <!-- BALANCE TAB -->
+    <div class="tab-panel" id="tab-balance">
+      <div class="page-head">
+        <h1>Rotation balance</h1>
+        <p>How many times each person has worked each task, all time. Each task is only compared across the people actually eligible for it, so an IC3-only task is judged only against IC3s.</p>
+      </div>
+      <div id="balance-list"></div>
+    </div>
+
+    <!-- HOLIDAYS TAB -->
+    <div class="tab-panel" id="tab-holidays">
+      <div class="page-head">
+        <h1>Holidays</h1>
+        <p>Click one or more days, then choose who's off and why. Click a coloured day again to remove it.</p>
+      </div>
+      <div class="card">
+        <div class="row">
+          <div class="week-nav">
+            <button id="cal-prev">‹</button>
+            <div class="wk-label" id="cal-label"></div>
+            <button id="cal-next">›</button>
+          </div>
+          <div class="spacer"></div>
+          <span class="muted" id="hol-selection-text">Click a day to select it — you can pick more than one.</span>
+        </div>
+        <div class="row hol-assign-row" id="hol-assign-row" style="display:none;">
+          <select id="hol-assign-who" style="max-width:180px;"></select>
+          <select id="hol-assign-reason" style="max-width:130px;">
+            <option value="holiday">Holiday</option>
+            <option value="sick">Out of office</option>
+          </select>
+          <button class="btn small" id="btn-hol-mark">Mark off</button>
+          <button class="btn secondary small" id="btn-hol-clear">Clear selection</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cal-legend">
+          <span class="cal-legend-item"><span class="cal-legend-swatch"></span> Holiday</span>
+          <span class="cal-legend-item"><span class="cal-legend-swatch sick"></span> Out of office</span>
+        </div>
+        <div class="cal" id="cal-grid"></div>
+      </div>
+      <div class="card">
+        <h3>Off this week</h3>
+        <div id="off-this-week" class="muted"></div>
+      </div>
+    </div>
+
+    <!-- MY SCHEDULE (viewer) -->
+    <div class="tab-panel viewer-only" id="tab-myschedule">
+      <div class="page-head">
+        <h1>My schedule</h1>
+        <p>Who's on what this week — your own rows are highlighted. This view is read-only.</p>
+      </div>
+      <div class="card">
+        <div class="row">
+          <div class="week-nav">
+            <button id="v-wk-prev">‹</button>
+            <div class="wk-label" id="v-wk-label"></div>
+            <button id="v-wk-next">›</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="v-your-week-card">
+        <h3>Your tasks this week</h3>
+        <div id="v-your-week-summary" style="overflow-x:auto;"></div>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <div id="viewer-sched-grid-wrap"></div>
+      </div>
+    </div>
+
+    <!-- MY HOLIDAYS (viewer) -->
+    <div class="tab-panel viewer-only" id="tab-myholidays">
+      <div class="page-head">
+        <h1>My holidays</h1>
+        <p>Everyone's time off, colour-coded. Click an open day to mark yourself off; click your own day again to remove it — you can't edit anyone else's.</p>
+      </div>
+      <div class="card">
+        <div class="row">
+          <div class="week-nav">
+            <button id="v-cal-prev">‹</button>
+            <div class="wk-label" id="v-cal-label"></div>
+            <button id="v-cal-next">›</button>
+          </div>
+          <div class="spacer"></div>
+          <label class="muted" style="font-size:12.5px;" for="v-hol-reason">Marking new days as</label>
+          <select id="v-hol-reason" style="max-width:130px;">
+            <option value="holiday">Holiday</option>
+            <option value="sick">Out of office</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cal-legend">
+          <span class="cal-legend-item"><span class="cal-legend-swatch"></span> Holiday</span>
+          <span class="cal-legend-item"><span class="cal-legend-swatch sick"></span> Out of office</span>
+        </div>
+        <div class="cal" id="v-cal-grid"></div>
+      </div>
+    </div>
+
+    <!-- DATA TAB -->
+    <div class="tab-panel" id="tab-data">
+      <div class="page-head">
+        <h1>Data</h1>
+        <p>Cloud autosave keeps everyone's changes in sync when it's working. This tab is the manual backstop — export a snapshot to keep safe or hand to a teammate, or import one to restore.</p>
+      </div>
+      <div class="card">
+        <h3>Export</h3>
+        <div class="hint">Bundles the team, task rules, weekly needs, holidays, and every schedule generated this session into one file.</div>
+        <div class="row">
+          <button class="btn small" id="btn-export">Export data</button>
+          <button class="btn secondary small" id="btn-copy-export">Copy to clipboard</button>
+        </div>
+        <textarea id="export-output" rows="7" style="margin-top:12px; display:none; font-family:'IBM Plex Mono',monospace; font-size:11px;" readonly></textarea>
+      </div>
+      <div class="card">
+        <h3>Import</h3>
+        <div class="hint">Choose a previously exported file, or paste its contents below, then load it. This replaces everything currently shown in the app on this screen.</div>
+        <div class="row">
+          <input type="file" id="import-file" accept="application/json,.json" style="max-width:230px;">
+          <button class="btn secondary small" id="btn-import-paste-toggle">Or paste JSON instead</button>
+        </div>
+        <textarea id="import-input" rows="7" style="margin-top:12px; display:none; font-family:'IBM Plex Mono',monospace; font-size:11px;" placeholder="Paste exported JSON here"></textarea>
+        <div class="row" style="margin-top:12px;">
+          <div class="spacer"></div>
+          <button class="btn small" id="btn-import">Load this data</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Audit log</h3>
+        <div class="hint">Who made admin/write changes, and when — Managers only. This is a record, not a settings screen; entries can't be edited or deleted from here.</div>
+        <div class="row" style="margin-bottom:10px;">
+          <button class="btn secondary small" id="btn-refresh-audit">Refresh</button>
+        </div>
+        <div id="audit-log-wrap"><div class="muted" style="font-size:12.5px;">Loading…</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="identity-modal" id="pending-modal">
+  <div class="identity-card">
+    <h2>You're in the queue</h2>
+    <p class="muted" style="margin:4px 0 8px 0;">Hi <strong id="pending-name">there</strong> — your account was created, but an admin still needs to add you to a team before you can see the schedule. You'll see it as soon as that happens.</p>
+    <p class="muted" id="pending-error" style="display:none; margin:8px 0; color:var(--brick-text);">Something went wrong checking your access. Try refreshing, or sign out and back in.</p>
+    <div class="row" style="margin-top:16px;">
+      <div class="spacer"></div>
+      <button class="btn secondary small" id="btn-pending-refresh">Check again</button>
+      <button class="btn small" id="btn-pending-signout">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<div class="identity-modal" id="confirm-modal">
+  <div class="identity-card">
+    <h2 id="confirm-title">Are you sure?</h2>
+    <p class="muted" id="confirm-message" style="margin:4px 0 16px 0;"></p>
+    <div class="row">
+      <div class="spacer"></div>
+      <button class="btn secondary small" id="confirm-cancel">Cancel</button>
+      <button class="btn danger small" id="confirm-ok">Remove</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toast-msg"></span><button id="toast-undo" style="display:none;">Undo</button></div>
+
+<script type="module">
+// Dev/preview-only fallback: an in-memory fake backend, used solely when the real Firebase
+// CDN can't be reached (e.g. this chat's sandboxed preview). Never touches real data, never
+// runs unless boot() above has already failed, and clearly labels itself in the UI so it can
+// never be mistaken for the live app.
+function installDemoBackend(){
+  console.warn('Demo mode: using an in-memory fake backend. Nothing here is saved anywhere.');
+  const store = new Map(); // "collection/id" -> plain object
+  const kv = new Map();    // key -> JSON string, for window.storage
+
+  function ref(colName, id){ return { __col: colName, __id: id }; }
+  function key(r){ return r.__col + '/' + r.__id; }
+
+  window.rotaDb = {
+    db: {},
+    doc: (_db, colName, id) => ref(colName, id),
+    collection: (_db, colName) => ({ __col: colName }),
+    query: (colRef, ...clauses) => ({ __col: colRef.__col, __clauses: clauses }),
+    where: () => null,
+    orderBy: (field, dir) => ({ __orderBy: field, __dir: dir||'asc' }),
+    limit: (n) => ({ __limit: n }),
+    documentId: () => '__id__',
+    arrayUnion: (...items) => ({ __arrayUnion: items }),
+    arrayRemove: (...items) => ({ __arrayRemove: items }),
+    async getDoc(r){
+      const k = key(r);
+      const data = store.get(k);
+      return { exists: () => store.has(k), data: () => ({ ...data }), id: r.__id };
+    },
+    async setDoc(r, data){ store.set(key(r), { ...data }); },
+    async updateDoc(r, patch){
+      const k = key(r);
+      const cur = store.get(k) || {};
+      const next = { ...cur };
+      for(const field in patch){
+        const v = patch[field];
+        if(v && Array.isArray(v.__arrayUnion)){
+          const arr = Array.isArray(cur[field]) ? cur[field].slice() : [];
+          v.__arrayUnion.forEach(item => { if(!arr.includes(item)) arr.push(item); });
+          next[field] = arr;
+        } else if(v && Array.isArray(v.__arrayRemove)){
+          const arr = Array.isArray(cur[field]) ? cur[field].slice() : [];
+          next[field] = arr.filter(item => !v.__arrayRemove.includes(item));
+        } else next[field] = v;
+      }
+      store.set(k, next);
+    },
+    async deleteDoc(r){ store.delete(key(r)); },
+    async getDocs(colOrQuery){
+      const prefix = colOrQuery.__col + '/';
+      let results = [];
+      for(const [k, data] of store.entries()){
+        if(k.startsWith(prefix)) results.push({ id: k.slice(prefix.length), data: () => ({ ...data }) });
+      }
+      const clauses = colOrQuery.__clauses || [];
+      const ob = clauses.find(c=>c && c.__orderBy);
+      if(ob) results.sort((a,b)=>{
+        const av=a.data()[ob.__orderBy], bv=b.data()[ob.__orderBy];
+        return (av>bv?1:av<bv?-1:0) * (ob.__dir==='desc'?-1:1);
+      });
+      const lim = clauses.find(c=>c && c.__limit);
+      if(lim) results = results.slice(0, lim.__limit);
+      return { empty: results.length === 0, forEach(fn){ results.forEach(fn); } };
+    }
+  };
+
+  window.storage = {
+    async get(k){ return kv.has(k) ? { key: k, value: kv.get(k) } : null; },
+    async set(k, value){ kv.set(k, value); return { key: k, value }; },
+    async delete(k){ kv.delete(k); return { key: k, deleted: true }; },
+    async list(prefix){ return { keys: [...kv.keys()].filter(k => k.startsWith(prefix)), prefix }; }
+  };
+
+  window.rotaAuth = {
+    async signOut(){ window.location.reload(); },
+    onReady(cb){
+      cb({ status:'approved', bootstrap:true, owner:true, uid:'demo-uid', email:'demo@example.com', name:'Demo Admin' });
+    }
+  };
+
+  const ribbon = document.createElement('div');
+  ribbon.textContent = 'Preview mode — nothing here is saved';
+  ribbon.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:2000; background:var(--gold); color:var(--ink); font:600 12px Inter,sans-serif; text-align:center; padding:5px;';
+  document.body.appendChild(ribbon);
+}
+window.installDemoBackend = installDemoBackend;
+</script>
+
+<script type="module">
+window.rotaReady = (async function boot(){
+  // ===== Firebase-backed storage + real access control =====
+  // Auth alone only proves *who* someone is. Whether they're allowed into the app at all,
+  // and which member record they map to, is resolved here against `access_control/approved`
+  // (a plain uid allow-list) and `signup_requests/{uid}` (one doc per person waiting on an
+  // admin) — both real Firestore documents governed by security rules, not client-side checks.
+  //
+  // These are loaded dynamically (not static top-level imports) specifically so a failure to
+  // reach the CDN — a restrictive firewall, an ad-blocker, no connection — can be caught and
+  // shown as a real message, instead of leaving window.rotaAuth/rotaDb undefined and letting
+  // every downstream call throw confusing "cannot destructure" errors.
+  let fbApp, fbAuth, fbStore;
+  try{
+    [fbApp, fbAuth, fbStore] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js"),
+    ]);
+  }catch(e){
+    console.error('Could not load Firebase (network/firewall/ad-blocker?)', e);
+    const cover = document.getElementById('boot-cover');
+    if(cover){
+      cover.innerHTML = `<div style="max-width:340px; text-align:center; color:var(--sidebar-ink); font-family:'Inter',sans-serif; padding:20px;">
+        <div style="font-weight:600; margin-bottom:6px; font-size:15px;">Couldn't connect</div>
+        <div style="font-size:13px; opacity:0.85; line-height:1.5;">This app couldn't reach the services it needs to run. Check your internet connection, or that a firewall or ad-blocker isn't blocking it, then try again.</div>
+        <div style="display:flex; gap:8px; justify-content:center; margin-top:14px;">
+          <button id="boot-retry" style="padding:8px 16px; border-radius:8px; border:none; background:var(--sidebar-ink); color:var(--sidebar); font-weight:600; cursor:pointer;">Reload</button>
+          <button id="boot-demo" style="padding:8px 16px; border-radius:8px; border:1px solid rgba(237,255,233,0.4); background:transparent; color:var(--sidebar-ink); font-weight:600; cursor:pointer;">Preview without saving</button>
+        </div>
+      </div>`;
+      const btn = document.getElementById('boot-retry');
+      if(btn) btn.addEventListener('click', ()=> window.location.reload());
+      const demoBtn = document.getElementById('boot-demo');
+      if(demoBtn) demoBtn.addEventListener('click', ()=>{
+        window.installDemoBackend();
+        if(window.__rotaRestart) window.__rotaRestart();
+      });
+    }
+    return; // stop here — window.rotaAuth / rotaDb / storage are intentionally left undefined;
+            // startAccessCheck() in the app script checks for that and no-ops rather than throwing.
+  }
+  const { initializeApp } = fbApp;
+  const { getAuth, onAuthStateChanged, signOut } = fbAuth;
+  const {
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
+    collection, query, where, orderBy, limit, getDocs, documentId, arrayUnion, arrayRemove
+  } = fbStore;
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDSMLKjzO0D_sZLG-0o3lcx2M-sBZOx7xs",
+    authDomain: "schedule-75592.firebaseapp.com",
+    projectId: "schedule-75592",
+    storageBucket: "schedule-75592.firebasestorage.app",
+    messagingSenderId: "462168002601",
+    appId: "1:462168002601:web:b070d152e9ac270b9fcc38"
+  };
+
+  const firebaseApp = initializeApp(firebaseConfig);
+  const auth = getAuth(firebaseApp);
+  const db = getFirestore(firebaseApp);
+  const KV_COLLECTION = "rota_kv";
+
+  // Owner safety net: these exact, Firebase-verified email addresses always get in as
+  // Manager, no matter what state access_control/approved or the members list are in.
+  // This is safe specifically *because* Firebase Auth verifies the email on sign-in — nobody
+  // else can authenticate as this address without its real password, so hardcoding it here
+  // isn't a bypass anyone else can use. Mirrored in firestore.rules so it holds even if this
+  // file is ever redeployed with a stale copy.
+  const OWNER_EMAILS = ['mrsijanas@gmail.com'];
+
+  async function resolveAccess(user){
+    const isOwner = !!user.email && OWNER_EMAILS.includes(user.email.toLowerCase());
+    if(isOwner){
+      // Best-effort keep the normal allow-list in sync too, so the rest of the app's own
+      // approved-list logic (and anyone else's access) stays consistent — but if this write
+      // fails for any reason, it doesn't block the owner; the rules already grant this email
+      // access directly, independent of this document.
+      try{
+        const approvedRef = doc(db, 'access_control', 'approved');
+        const approvedSnap = await getDoc(approvedRef);
+        if(!approvedSnap.exists()){
+          await setDoc(approvedRef, { uids:[user.uid] });
+        } else if(!(approvedSnap.data().uids||[]).includes(user.uid)){
+          await updateDoc(approvedRef, { uids: arrayUnion(user.uid) });
+        }
+      }catch(e){ console.warn('Could not sync owner into approved list (non-fatal)', e); }
+      return { status:'approved', bootstrap:false, owner:true, uid:user.uid, email:user.email, name:user.displayName||user.email };
+    }
+    const approvedRef = doc(db, 'access_control', 'approved');
+    const approvedSnap = await getDoc(approvedRef);
+    if(!approvedSnap.exists()){
+      // Nobody has ever been approved yet — the first person through the door becomes the
+      // initial admin. Mirrors the old "no managers exist yet" bootstrap, but enforced by
+      // the security rules (only the very first caller may create this doc) rather than by
+      // a client-side assumption.
+      await setDoc(approvedRef, { uids:[user.uid] });
+      await deleteDoc(doc(db, 'signup_requests', user.uid)).catch(()=>{});
+      return { status:'approved', bootstrap:true, uid:user.uid, email:user.email, name:user.displayName||user.email };
+    }
+    const approvedUids = approvedSnap.data().uids || [];
+    if(approvedUids.includes(user.uid)){
+      return { status:'approved', bootstrap:false, uid:user.uid, email:user.email, name:user.displayName||user.email };
+    }
+    const reqRef = doc(db, 'signup_requests', user.uid);
+    let reqSnap = await getDoc(reqRef);
+    if(!reqSnap.exists()){
+      const data = { name:user.displayName||user.email, email:user.email, createdAt:Date.now() };
+      await setDoc(reqRef, data);
+      reqSnap = { exists:()=>true, data:()=>data };
+    }
+    return { status:'pending', uid:user.uid, email:user.email, name:reqSnap.data().name };
+  }
+
+  window.rotaAuth = {
+    async signOut(){ try{ await signOut(auth); }catch(e){} window.location.replace('login.html'); },
+    onReady(callback){
+      onAuthStateChanged(auth, async (user) => {
+        if(!user){ window.location.replace("login.html"); return; }
+        try{
+          callback(await resolveAccess(user));
+        }catch(e){
+          console.error('Access check failed', e);
+          callback({ status:'error' });
+        }
+      });
+    }
+  };
+  window.rotaDb = { db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, orderBy, limit, arrayUnion, arrayRemove };
+
+  window.storage = {
+    async get(key){
+      const snap = await getDoc(doc(db, KV_COLLECTION, key));
+      if(!snap.exists()) return null;
+      return { key, value: snap.data().value };
+    },
+    async set(key, value){
+      await setDoc(doc(db, KV_COLLECTION, key), { value, updatedAt: Date.now() });
+      return { key, value };
+    },
+    async delete(key){
+      await deleteDoc(doc(db, KV_COLLECTION, key));
+      return { key, deleted: true };
+    },
+    async list(prefix){
+      const col = collection(db, KV_COLLECTION);
+      const q = query(col, where(documentId(), '>=', prefix), where(documentId(), '<', prefix + '\uf8ff'));
+      const snap = await getDocs(q);
+      const keys = [];
+      snap.forEach(d => keys.push(d.id));
+      return { keys, prefix };
+    }
+  };
+})();
+</script>
+
+<script type="module">
+(function(){
+
+// ---------- constants ----------
+const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+const DAY_LABELS = {mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday',sat:'Saturday',sun:'Sunday'};
+const DAY_SHORT = {mon:'MON',tue:'TUE',wed:'WED',thu:'THU',fri:'FRI',sat:'SAT',sun:'SUN'};
+const LEVELS = ['IC1','IC2','IC3','Manager'];
+
+const DEFAULT_TASKS = [
+  {id:'instant_screening', name:'Task 1', levels:['IC1'], excludes:'consultation', notes:'Only IC1s work this. Cannot be combined with Task 11 on the same day.'},
+  {id:'retro_transfers', name:'Task 2', levels:[], excludes:null, notes:'No extra restriction beyond individual eligibility below.'},
+  {id:'ongoing_screening', name:'Task 3', levels:[], excludes:null, notes:'No extra restriction beyond individual eligibility below.'},
+  {id:'instant_transfers', name:'Task 4', levels:[], excludes:null, notes:'No extra restriction beyond individual eligibility below.'},
+  {id:'ticketron_esc', name:'Task 5', levels:[], excludes:null, notes:'No conditions.'},
+  {id:'slack_alerts', name:'Task 6', levels:[], excludes:null, notes:'No conditions.'},
+  {id:'qa', name:'Task 7', levels:['IC3'], excludes:null, sameAllWeek:true, notes:'One person a week, rotates across all IC3s. Same person covers every day Task 7 is needed that week.'},
+  {id:'ma', name:'Task 8', levels:[], excludes:null, notes:'No conditions.'},
+  {id:'risk_assessment', name:'Task 9', levels:['IC2','IC3'], excludes:null, notes:'IC2 and IC3 only.'},
+  {id:'str_review', name:'Task 10', levels:['IC3'], excludes:null, notes:'IC3 only.'},
+  {id:'consultation', name:'Task 11', levels:['IC2'], excludes:null, notes:'IC2 only.'},
+];
+
+const DEFAULT_REQ = {
+  instant_screening:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  retro_transfers:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  ongoing_screening:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  instant_transfers:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  ticketron_esc:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  slack_alerts:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  qa:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  ma:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  risk_assessment:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  str_review:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  consultation:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+};
+
+function elig(list){
+  const o = {}; DEFAULT_TASKS.forEach(t=>o[t.id]=false);
+  list.forEach(id=>o[id]=true);
+  return o;
+}
+const DEFAULT_TEAM_ID = 'team_main';
+const DEFAULT_TEAMS = [
+  {id: DEFAULT_TEAM_ID, name:'Main Team', managerId:null}
+];
+const DEFAULT_MEMBERS = [
+  {id:'m_person1', name:'Person 1', levels:['IC2'], email:'person1@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person2', name:'Person 2', levels:['IC3'], email:'person2@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person3', name:'Person 3', levels:['IC3'], email:'person3@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa','str_review'])},
+  {id:'m_person4', name:'Person 4', levels:['IC2'], email:'person4@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
+  {id:'m_person5', name:'Person 5', levels:['IC2'], email:'person5@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
+  {id:'m_person6', name:'Person 6', levels:['IC3'], email:'person6@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa','str_review'])},
+  {id:'m_person7', name:'Person 7', levels:['IC2'], email:'person7@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person8', name:'Person 8', levels:['IC2'], email:'person8@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
+  {id:'m_person9', name:'Person 9', levels:['IC3'], email:'person9@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa','str_review'])},
+  {id:'m_person10', name:'Person 10', levels:['IC2'], email:'person10@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
+  {id:'m_person11', name:'Person 11', levels:['IC2'], email:'person11@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person12', name:'Person 12', levels:['IC2'], email:'person12@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
+  {id:'m_person13', name:'Person 13', levels:['IC2'], email:'person13@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa'])},
+  {id:'m_person14', name:'Person 14', levels:['IC2'], email:'person14@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
+  {id:'m_person15', name:'Person 15', levels:['IC2'], email:'person15@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa'])},
+  {id:'m_person16', name:'Person 16', levels:['IC1'], email:'person16@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person17', name:'Person 17', levels:['IC1'], email:'person17@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person18', name:'Person 18', levels:['IC1'], email:'person18@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person19', name:'Person 19', levels:['IC2'], email:'person19@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma'])},
+  {id:'m_person20', name:'Person 20', levels:['IC2'], email:'person20@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma'])},
+  {id:'m_person21', name:'Person 21', levels:['IC1'], email:'person21@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person22', name:'Person 22', levels:['IC1'], email:'person22@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_person23', name:'Person 23', levels:['IC1'], email:'person23@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+];
+
+// ---------- state ----------
+// state.tasks / state.req / state.schedules are accessors (defined below) that transparently
+// read and write whichever team is currently selected — every existing function that already
+// used state.tasks/state.req/state.schedules keeps working unchanged, just scoped per team now.
+let state = { members:[], teams:[], tasksByTeam:{}, reqByTeam:{}, holidays:{}, holidayReasons:{}, schedulesByTeam:{} };
+let currentTeamId = null;
+Object.defineProperty(state, 'tasks', {
+  get(){ return state.tasksByTeam[currentTeamId] || (state.tasksByTeam[currentTeamId] = []); },
+  set(v){ state.tasksByTeam[currentTeamId] = v; }
+});
+Object.defineProperty(state, 'req', {
+  get(){ return state.reqByTeam[currentTeamId] || (state.reqByTeam[currentTeamId] = {}); },
+  set(v){ state.reqByTeam[currentTeamId] = v; }
+});
+Object.defineProperty(state, 'schedules', {
+  get(){ return state.schedulesByTeam[currentTeamId] || (state.schedulesByTeam[currentTeamId] = {}); },
+  set(v){ state.schedulesByTeam[currentTeamId] = v; }
+});
+function teamMembers(){ return state.members.filter(m=> m.teamId===currentTeamId); }
+function currentTeam(){ return state.teams.find(t=>t.id===currentTeamId); }
+
+let currentWeekMonday = mondayOf(new Date());
+let currentCalMonth = new Date(); currentCalMonth.setDate(1);
+let currentSchedule = null; // {dateISO:{taskId:[memberIds]}}
+let balanceCache = null;
+
+// ---------- date helpers ----------
+function mondayOf(d){ const x=new Date(d); const day=x.getDay(); const diff=(day===0?-6:1-day); x.setDate(x.getDate()+diff); x.setHours(0,0,0,0); return x; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function iso(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function fmtWeek(mon){ const sun=addDays(mon,6); const opt={month:'short',day:'numeric'}; return `${mon.toLocaleDateString('en-US',opt)} – ${sun.toLocaleDateString('en-US',opt)}`; }
+
+// ---------- storage ----------
+// Cloud storage (window.storage) is treated as best-effort only. The in-memory `state` object
+// is the real source of truth for the session — every read/write updates it immediately, and
+// a save to the cloud is attempted on top but never blocks or resets what's on screen.
+let storageWorking = null; // null = unknown yet, true/false once we know
+
+async function loadState(){
+  // Teams first — if there are none yet, this is either a brand-new install or an upgrade
+  // from before teams existed, so we create one default team and fold any old data into it.
+  let teams = null;
+  try{ const t = await window.storage.get('teams', true); teams = t ? JSON.parse(t.value) : null; }catch(e){}
+  const firstRun = !teams || teams.length===0;
+  state.teams = firstRun ? JSON.parse(JSON.stringify(DEFAULT_TEAMS)) : teams;
+  currentTeamId = state.teams[0].id;
+
+  let loadedMembersFromCollection = false;
+  try{
+    const { db, collection, getDocs } = window.rotaDb;
+    const snap = await getDocs(collection(db, 'app_members'));
+    if(!snap.empty){
+      const arr = [];
+      snap.forEach(d=> arr.push({ id: d.id, ...d.data() }));
+      state.members = arr;
+      loadedMembersFromCollection = true;
+    }
+  }catch(e){ console.error('Could not load app_members collection', e); }
+  if(!loadedMembersFromCollection){
+    // Nothing in the new collection yet — fall back to the legacy single-blob roster (or
+    // defaults on a brand-new install) so nothing is lost; it gets fanned out into individual
+    // docs below via persistMembers() the first time this runs.
+    try{
+      const m = await window.storage.get('members', true);
+      state.members = m ? JSON.parse(m.value) : JSON.parse(JSON.stringify(DEFAULT_MEMBERS));
+    }catch(e){ state.members = JSON.parse(JSON.stringify(DEFAULT_MEMBERS)); }
+  }
+  membersSyncSnapshot = loadedMembersFromCollection
+    ? new Map(state.members.map(m=>[m.id, memberContentString(m)]))
+    : new Map(); // forces the migration write below, since nothing is confirmed-saved yet
+  // anyone saved before teams existed won't have a teamId — put them on the first team
+  let membersMigrated = false;
+  state.members.forEach(mem=>{
+    if(!mem.teamId){ mem.teamId = state.teams[0].id; membersMigrated = true; }
+    if(!mem.levels){ mem.levels = mem.level ? [mem.level] : ['IC1']; membersMigrated = true; }
+  });
+
+  // Pick up pre-teams global task/requirement data once, so upgrading doesn't lose it
+  let legacyTasks = null, legacyReq = null;
+  if(firstRun){
+    try{ const lt = await window.storage.get('tasks', true); if(lt) legacyTasks = JSON.parse(lt.value); }catch(e){}
+    try{ const lr = await window.storage.get('weekly_req', true); if(lr) legacyReq = JSON.parse(lr.value); }catch(e){}
+    // also carry forward any schedules generated before teams existed (schedule_<date>) onto
+    // the new team-scoped key (schedule_<teamId>_<date>), so balance history isn't lost
+    try{
+      const list = await window.storage.list('schedule_', true);
+      if(list && list.keys){
+        for(const k of list.keys){
+          const rest = k.slice('schedule_'.length);
+          if(/^\d{4}-\d{2}-\d{2}$/.test(rest)){
+            try{
+              const res = await window.storage.get(k, true);
+              if(res) await window.storage.set('schedule_'+state.teams[0].id+'_'+rest, res.value, true);
+            }catch(e){}
+          }
+        }
+      }
+    }catch(e){}
+  }
+  state.tasksByTeam = {};
+  state.reqByTeam = {};
+  await Promise.all(state.teams.map(async team=>{
+    try{
+      const tt = await window.storage.get('tasks_'+team.id, true);
+      state.tasksByTeam[team.id] = tt ? JSON.parse(tt.value) : (legacyTasks || JSON.parse(JSON.stringify(DEFAULT_TASKS)));
+    }catch(e){ state.tasksByTeam[team.id] = legacyTasks || JSON.parse(JSON.stringify(DEFAULT_TASKS)); }
+    try{
+      const rr = await window.storage.get('weekly_req_'+team.id, true);
+      state.reqByTeam[team.id] = rr ? JSON.parse(rr.value) : (legacyReq || JSON.parse(JSON.stringify(DEFAULT_REQ)));
+    }catch(e){ state.reqByTeam[team.id] = legacyReq || JSON.parse(JSON.stringify(DEFAULT_REQ)); }
+  }));
+
+  let loadedHolidaysFromCollection = false;
+  try{
+    const { db, collection, getDocs } = window.rotaDb;
+    const snap = await getDocs(collection(db, 'app_holidays'));
+    if(!snap.empty){
+      state.holidays = {}; state.holidayReasons = {};
+      snap.forEach(d=>{
+        const data = d.data();
+        state.holidays[d.id] = data.dates || [];
+        state.holidayReasons[d.id] = data.reasons || {};
+      });
+      loadedHolidaysFromCollection = true;
+    }
+  }catch(e){ console.error('Could not load app_holidays collection', e); }
+  if(!loadedHolidaysFromCollection){
+    const [holidaysRes, holidayReasonsRes] = await Promise.all([
+      window.storage.get('holidays', true).catch(()=>null),
+      window.storage.get('holiday_reasons', true).catch(()=>null)
+    ]);
+    state.holidays = holidaysRes ? JSON.parse(holidaysRes.value) : {};
+    state.holidayReasons = holidayReasonsRes ? JSON.parse(holidayReasonsRes.value) : {};
+  }
+  holidaysSyncSnapshot = loadedHolidaysFromCollection
+    ? new Map(Object.keys(state.holidays).filter(mid=> (state.holidays[mid]||[]).length || Object.keys(state.holidayReasons[mid]||{}).length).map(mid=>[mid, holidayContentString(mid)]))
+    : new Map(); // forces the migration write below, since nothing is confirmed-saved yet
+
+  // persist anything we just created or migrated
+  if(firstRun) await safeSet('teams', state.teams, true);
+  if(firstRun || membersMigrated || !loadedMembersFromCollection) await persistMembers();
+  if(firstRun || !loadedHolidaysFromCollection) await persistHolidays();
+  for(const team of state.teams){
+    await safeSet('tasks_'+team.id, state.tasksByTeam[team.id], true);
+    await safeSet('weekly_req_'+team.id, state.reqByTeam[team.id], true);
+  }
+
+  // quick connectivity check, silent — decides whether to show the backup-reminder banner
+  try{
+    const res = await window.storage.set('__connectivity_test__', JSON.stringify({t:Date.now()}), true);
+    storageWorking = !!res;
+  }catch(e){ storageWorking = false; }
+  updateStorageBanner();
+}
+async function safeSet(key, val, silent){
+  try{
+    const res = await window.storage.set(key, JSON.stringify(val), true);
+    storageWorking = !!res;
+    updateStorageBanner();
+    return !!res;
+  }catch(e){
+    console.error('storage set failed', key, e);
+    storageWorking = false;
+    updateStorageBanner();
+    if(!silent) showToast('Saved on this screen — cloud sync failed, see banner above');
+    return false;
+  }
+}
+// ---- Holidays: one Firestore doc per person (app_holidays/{memberId}), same reasoning as
+// members above — marking one day off used to rewrite the whole company's calendar. ----
+let holidaysSyncSnapshot = new Map(); // member id -> JSON string of last-known-persisted content
+function holidayContentString(mid){
+  return JSON.stringify({ dates: state.holidays[mid]||[], reasons: state.holidayReasons[mid]||{} });
+}
+async function persistHolidays(){
+  try{
+    const { db, doc, setDoc, deleteDoc } = window.rotaDb;
+    const ids = new Set([...Object.keys(state.holidays), ...Object.keys(state.holidayReasons)]);
+    const seen = new Set();
+    const ops = [];
+    for(const mid of ids){
+      const dates = state.holidays[mid]||[];
+      const reasons = state.holidayReasons[mid]||{};
+      if(dates.length===0 && Object.keys(reasons).length===0) continue; // nothing to store for this person
+      seen.add(mid);
+      const content = holidayContentString(mid);
+      if(holidaysSyncSnapshot.get(mid) !== content){
+        ops.push(setDoc(doc(db, 'app_holidays', mid), { dates, reasons }));
+      }
+    }
+    for(const mid of holidaysSyncSnapshot.keys()){
+      if(!seen.has(mid)) ops.push(deleteDoc(doc(db, 'app_holidays', mid)));
+    }
+    if(ops.length) await Promise.all(ops);
+    holidaysSyncSnapshot = new Map([...ids].filter(mid=>seen.has(mid)).map(mid=>[mid, holidayContentString(mid)]));
+    storageWorking = true;
+    updateStorageBanner();
+    return true;
+  }catch(e){
+    console.error('Could not save holidays', e);
+    storageWorking = false;
+    updateStorageBanner();
+    showToast('Saved on this screen — cloud sync failed, see banner above');
+    return false;
+  }
+}
+// Editing one person used to rewrite the entire roster; besides being slow as the team grows,
+// two people saving around the same time could silently clobber each other (this is what
+// caused an admin's own Manager tag to briefly vanish). persistMembers() instead diffs the
+// in-memory roster against what was last known to be saved and only writes docs that actually
+// changed, so an edit to one person costs one small write, not the whole company.
+// ---- Manager roster (access_control/managers): mirrors OWNER_EMAILS-style bootstrap, but
+// for "is this account allowed to write app_members" in general. Kept in sync with whoever
+// currently holds the Manager tag in state.members, so Firestore rules can enforce Manager-only
+// writes on member data server-side, not just hide the admin buttons client-side. ----
+async function ensureInManagersList(uid){
+  try{
+    const { db, doc, getDoc, setDoc, updateDoc, arrayUnion } = window.rotaDb;
+    const ref = doc(db, 'access_control', 'managers');
+    const snap = await getDoc(ref);
+    if(!snap.exists()){
+      await setDoc(ref, { uids:[uid] });
+    } else if(!(snap.data().uids||[]).includes(uid)){
+      await updateDoc(ref, { uids: arrayUnion(uid) });
+    }
+  }catch(e){ console.warn('Could not add to managers list (non-fatal)', e); }
+}
+let managersSyncSnapshot = null; // last-known sorted,joined manager-uid list actually written
+async function syncManagerRoster(){
+  if(viewMode !== 'admin') return; // only a manager/owner session has the contacts loaded to compute this correctly
+  try{
+    const managerUids = state.members.filter(m=>(m.levels||[]).includes('Manager') && memberContacts[m.id]?.authUid).map(m=>memberContacts[m.id].authUid);
+    const key = [...managerUids].sort().join(',');
+    if(managersSyncSnapshot === key) return;
+    const { db, doc, setDoc } = window.rotaDb;
+    await setDoc(doc(db, 'access_control', 'managers'), { uids: managerUids });
+    managersSyncSnapshot = key;
+  }catch(e){ console.warn('Could not sync managers list (non-fatal)', e); }
+}
+// ---- Audit log ----
+// A simple append-only record of admin/write actions: who, what, when. Viewable in the Data
+// tab (Managers/owner only — the log itself is need-to-know, same principle as everything else).
+// Failing to write a log entry never blocks the actual action — this is a record, not a gate.
+async function logAudit(action, details){
+  try{
+    const { db, doc, setDoc } = window.rotaDb;
+    const id = 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    await setDoc(doc(db, 'audit_log', id), {
+      ts: Date.now(),
+      actorUid: currentAuthUid || null,
+      actorName: (viewerIdentityId && state.members.find(m=>m.id===viewerIdentityId)?.name) || 'Unknown',
+      teamId: currentTeamId || null,
+      action,
+      details: details || {}
+    });
+  }catch(e){ console.warn('Could not write audit log entry (non-fatal)', e); }
+}
+async function renderAuditLog(){
+  const wrap = document.getElementById('audit-log-wrap');
+  wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Loading…</div>`;
+  try{
+    const { db, collection, query, orderBy, limit, getDocs } = window.rotaDb;
+    const snap = await getDocs(query(collection(db,'audit_log'), orderBy('ts','desc'), limit(100)));
+    const entries = [];
+    snap.forEach(d=> entries.push(d.data()));
+    if(entries.length===0){ wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">No admin actions recorded yet.</div>`; return; }
+    const ACTION_LABELS = {
+      'member.save':'Edited a person', 'member.remove':'Removed a person', 'member.assign_team':'Assigned to a team',
+      'member.approve':'Approved a signup', 'signup.reject':'Dismissed a signup request',
+      'team.remove':'Removed a team', 'team.save_all':'Saved team list',
+      'task.save':'Edited a task', 'task.remove':'Removed a task'
+    };
+    let html = '<div class="audit-log-list">';
+    entries.forEach(e=>{
+      const when = new Date(e.ts).toLocaleString();
+      const label = ACTION_LABELS[e.action] || e.action;
+      const detailBits = Object.entries(e.details||{}).filter(([k,v])=>v!==undefined && v!=='' && v!==null).map(([k,v])=>`${k}: ${Array.isArray(v)?v.join('/'):v}`).join(', ');
+      html += `<div class="audit-log-row">
+        <span class="audit-log-when mono">${escHtml(when)}</span>
+        <span class="audit-log-who">${escHtml(e.actorName||'Unknown')}</span>
+        <span class="audit-log-action">${escHtml(label)}</span>
+        <span class="audit-log-detail muted">${escHtml(detailBits)}</span>
+      </div>`;
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+  }catch(e){
+    console.error('Could not load audit log', e);
+    wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Couldn't load the audit log — try Refresh, or check you're signed in as a Manager.</div>`;
+  }
+}
+document.getElementById('btn-refresh-audit').addEventListener('click', renderAuditLog);
+// ---- Contact info (email, authUid): split out of app_members into its own collection ----
+// app_members holds only what everyone needs to see a schedule: name, team, level, task
+// eligibility. Email and the technical auth-account link now live in member_contacts instead,
+// readable in bulk only by Managers/owner — a plain team member's browser never receives
+// anyone's email address or account ID, just names and schedules. Each person can still read
+// their OWN contact doc (a query constrained to their own uid), which is how identity
+// resolution finds "which member row is me" without needing broad read access.
+let memberContacts = {}; // memberId -> {email, authUid} — populated only in admin sessions
+async function loadMemberContactsForAdmin(){
+  if(viewMode !== 'admin') return;
+  try{
+    const { db, doc, setDoc, getDocs, collection } = window.rotaDb;
+    const snap = await getDocs(collection(db, 'member_contacts'));
+    const existingIds = new Set();
+    memberContacts = {};
+    snap.forEach(d=>{ existingIds.add(d.id); memberContacts[d.id] = d.data(); });
+
+    // One-time migration: older member docs may still carry email/authUid inline (from before
+    // this split existed). Fan those into member_contacts, then strip them from app_members.
+    let needsCleanup = false;
+    for(const m of state.members){
+      if((m.email !== undefined) || (m.authUid !== undefined)){
+        needsCleanup = true;
+        if(!existingIds.has(m.id)){
+          const contact = { email: m.email||'', authUid: m.authUid||null };
+          await setDoc(doc(db, 'member_contacts', m.id), contact);
+          memberContacts[m.id] = contact;
+        }
+      }
+    }
+    if(needsCleanup){
+      state.members = state.members.map(m=>{ const { email, authUid, ...rest } = m; return rest; });
+      await persistMembers();
+    }
+  }catch(e){ console.error('Could not load member contacts', e); }
+}
+async function saveContact(memberId, email, authUid){
+  try{
+    const { db, doc, setDoc } = window.rotaDb;
+    const contact = { email: email||'', authUid: authUid||null };
+    await setDoc(doc(db, 'member_contacts', memberId), contact);
+    memberContacts[memberId] = contact;
+  }catch(e){ console.error('Could not save contact info', e); }
+}
+async function deleteContact(memberId){
+  try{
+    const { db, doc, deleteDoc } = window.rotaDb;
+    await deleteDoc(doc(db, 'member_contacts', memberId));
+    delete memberContacts[memberId];
+  }catch(e){ console.error('Could not delete contact info', e); }
+}
+// Find "my own" member id from my auth uid — a query constrained to exactly my own uid, which
+// the rules can verify is safe without granting broad read access to everyone else's contacts.
+async function findMemberIdByUid(uid){
+  try{
+    const { db, collection, query, where, getDocs } = window.rotaDb;
+    const snap = await getDocs(query(collection(db,'member_contacts'), where('authUid','==', uid)));
+    let found = null;
+    snap.forEach(d=>{ found = d.id; });
+    return found;
+  }catch(e){ console.error('Could not look up member by uid', e); return null; }
+}
+// Manager/owner-only fallback (email match) — used to re-link an account whose uid connection
+// was lost without recreating a duplicate row. Requires the broad-read permission a Manager has.
+async function findMemberIdByEmail(email){
+  try{
+    const { db, collection, query, where, getDocs } = window.rotaDb;
+    const snap = await getDocs(query(collection(db,'member_contacts'), where('email','==', email)));
+    let found = null;
+    snap.forEach(d=>{ found = d.id; });
+    return found;
+  }catch(e){ return null; }
+}
+// ---- Members: one Firestore doc per person (app_members/{id}), not one shared blob ----
+let membersSyncSnapshot = new Map(); // member id -> JSON string of last-known-persisted content
+function memberContentString(m){
+  const { id, ...rest } = m;
+  return JSON.stringify(rest);
+}
+async function persistMembers(){
+  try{
+    const { db, doc, setDoc, deleteDoc } = window.rotaDb;
+    const seen = new Set();
+    const ops = [];
+    for(const m of state.members){
+      seen.add(m.id);
+      const content = memberContentString(m);
+      if(membersSyncSnapshot.get(m.id) !== content){
+        const { id, ...rest } = m;
+        ops.push(setDoc(doc(db, 'app_members', id), rest));
+      }
+    }
+    for(const id of membersSyncSnapshot.keys()){
+      if(!seen.has(id)) ops.push(deleteDoc(doc(db, 'app_members', id)));
+    }
+    if(ops.length) await Promise.all(ops);
+    membersSyncSnapshot = new Map(state.members.map(m=>[m.id, memberContentString(m)]));
+    await syncManagerRoster();
+    storageWorking = true;
+    updateStorageBanner();
+    return true;
+  }catch(e){
+    console.error('Could not save members', e);
+    storageWorking = false;
+    updateStorageBanner();
+    showToast('Saved on this screen — cloud sync failed, see banner above');
+    return false;
+  }
+}
+// Weekly schedules: always cached in state.schedules (in-memory) so switching weeks, adding
+// people to cells, and the balance tab all work even when the cloud save is failing.
+async function loadWeek(weekISO){
+  if(Object.prototype.hasOwnProperty.call(state.schedules, weekISO)) return state.schedules[weekISO];
+  let sched = {};
+  try{ const r = await window.storage.get('schedule_'+currentTeamId+'_'+weekISO, true); if(r) sched = JSON.parse(r.value); }catch(e){}
+  state.schedules[weekISO] = sched;
+  return sched;
+}
+async function saveWeek(weekISO, sched){
+  state.schedules[weekISO] = sched; // in-memory always succeeds
+  return safeSet('schedule_'+currentTeamId+'_'+weekISO, sched, true);
+}
+function updateStorageBanner(){
+  const el = document.getElementById('storage-banner');
+  if(!el) return;
+  el.style.display = storageWorking===false ? 'flex' : 'none';
+}
+
+// ---------- toast (with optional Undo) ----------
+let toastTimer=null;
+function showToast(msg, onUndo){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  const undoBtn = document.getElementById('toast-undo');
+  if(onUndo){
+    undoBtn.style.display = '';
+    undoBtn.onclick = ()=>{ t.classList.remove('show'); clearTimeout(toastTimer); onUndo(); };
+  } else {
+    undoBtn.style.display = 'none';
+    undoBtn.onclick = null;
+  }
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), onUndo ? 6000 : 2400);
+}
+
+// ---------- confirm modal, for destructive actions only ----------
+// Kept to genuinely hard-to-reverse actions (remove person/team/task, clear a week) — everyday
+// edits like removing one day's assignment stay instant, so this doesn't become the thing
+// people click through without reading.
+function askConfirm(message, confirmLabel, onConfirm){
+  document.getElementById('confirm-message').textContent = message;
+  document.getElementById('confirm-ok').textContent = confirmLabel || 'Remove';
+  document.getElementById('confirm-modal').classList.add('open');
+  const okBtn = document.getElementById('confirm-ok');
+  const cancelBtn = document.getElementById('confirm-cancel');
+  const close = ()=> document.getElementById('confirm-modal').classList.remove('open');
+  okBtn.onclick = ()=>{ close(); onConfirm(); };
+  cancelBtn.onclick = close;
+}
+
+// ---------- undo stack ----------
+// Deliberately simple: each entry just knows how to put things back the way they were. The
+// toast's Undo button always targets whatever's most recent — there's no history browser, since
+// the real goal is catching "oops, wrong click" a few seconds later, not a full audit log.
+let undoStack = [];
+function pushUndo(restoreFn){
+  undoStack.push(restoreFn);
+  if(undoStack.length > 5) undoStack.shift();
+}
+function undoLast(){
+  const fn = undoStack.pop();
+  if(fn) fn();
+}
+
+// ---------- tabs ----------
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='org') renderOrgTab();
+    if(btn.dataset.tab==='myschedule') renderViewerScheduleTab();
+    if(btn.dataset.tab==='myholidays') renderViewerHolidaysTab();
+    if(btn.dataset.tab==='schedule') renderScheduleTab();
+    if(btn.dataset.tab==='balance') renderBalanceTab();
+    if(btn.dataset.tab==='holidays') renderHolidaysTab();
+    if(btn.dataset.tab==='data') renderAuditLog();
+  });
+});
+
+const checkSvg = '<svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// ================= FANCY DROPDOWNS =================
+// Native <select> popups can't be restyled with CSS in any browser — the open list is drawn
+// by the OS, not the page. To get a themed, animated dropdown (matching the schedule's
+// Delete/Replace menu), each <select> is wrapped: the original element is kept in the DOM
+// (visually hidden, not removed) so every existing `.value` read and `addEventListener('change', ...)`
+// elsewhere in the app keeps working untouched — a custom button + menu sits in front of it,
+// and choosing an option sets the real select's value and dispatches a real 'change' event.
+function enhanceSelect(selectEl){
+  if(selectEl.dataset.fselDone){ if(selectEl._fselSync) selectEl._fselSync(); return; }
+  selectEl.dataset.fselDone = '1';
+  const wrap = document.createElement('div');
+  wrap.className = 'fsel';
+  selectEl.parentNode.insertBefore(wrap, selectEl);
+  wrap.appendChild(selectEl);
+  selectEl.classList.add('fsel-native');
+  selectEl.tabIndex = -1;
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'fsel-trigger';
+  // carry over any inline width/max-width etc. set on the original select
+  if(selectEl.getAttribute('style')) trigger.setAttribute('style', selectEl.getAttribute('style'));
+  wrap.appendChild(trigger);
+
+  const menu = document.createElement('div');
+  menu.className = 'fsel-menu';
+  wrap.appendChild(menu);
+
+  function syncTrigger(){
+    const opt = selectEl.options[selectEl.selectedIndex];
+    trigger.innerHTML = `<span>${escHtml(opt ? opt.textContent : '')}</span>`;
+    trigger.disabled = selectEl.disabled;
+  }
+  function buildMenu(){
+    menu.innerHTML = '';
+    Array.from(selectEl.options).forEach(opt=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fsel-opt' + (opt.value===selectEl.value ? ' active' : '');
+      b.textContent = opt.textContent;
+      b.disabled = opt.disabled;
+      b.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        selectEl.value = opt.value;
+        selectEl.dispatchEvent(new Event('change', {bubbles:true}));
+        syncTrigger();
+        closeAllFancySelects();
+      });
+      menu.appendChild(b);
+    });
+  }
+  trigger.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(trigger.disabled) return;
+    const wasOpen = menu.classList.contains('open');
+    closeAllFancySelects();
+    if(!wasOpen){ buildMenu(); menu.classList.add('open'); }
+  });
+  syncTrigger();
+  selectEl._fselSync = syncTrigger;
+}
+function closeAllFancySelects(){
+  document.querySelectorAll('.fsel-menu.open').forEach(m=> m.classList.remove('open'));
+}
+document.addEventListener('click', (e)=>{ if(!e.target.closest('.fsel')) closeAllFancySelects(); });
+function enhanceSelectsIn(root){
+  (root||document).querySelectorAll('select').forEach(enhanceSelect);
+}
+
+// ================= TEAM TAB =================
+function renderTeamTab(){
+  const wrap = document.getElementById('team-table-wrap');
+  const label = document.getElementById('people-team-label');
+  if(label){ const t = currentTeam(); label.textContent = t ? `— viewing ${t.name}` : ''; }
+  if(teamMembers().length===0){
+    wrap.innerHTML = `<div class="muted" style="padding:16px 2px;">No one's on this team yet — add someone above, or assign someone from Unassigned below.</div>`;
+    return;
+  }
+  let html = '';
+  teamMembers().forEach(m=>{
+    html += `<div class="member-card" data-mid="${m.id}">
+      <div class="member-card-head">
+        <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="Name">
+        <div class="row-actions">
+          <button class="btn small btn-save-member">Save</button>
+          <button class="btn-remove-x btn-del-member" title="Remove">×</button>
+        </div>
+      </div>
+      <div class="member-card-grid">
+        <div class="field"><label>Level</label><div class="m-level-cell">${LEVELS.map(l=>`<label class="chip-check"><input type="checkbox" class="m-level-check" value="${l}" ${(m.levels||[]).includes(l)?'checked':''}> ${l}</label>`).join('')}</div></div>
+        <div class="field"><label>Email</label><input type="email" class="m-email" value="${escAttr((memberContacts[m.id]&&memberContacts[m.id].email)||'')}"></div>
+        <div class="field"><label>Team</label><select class="m-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===m.teamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select></div>
+      </div>
+      <div class="member-card-tasks">
+        <label>Eligible tasks</label>
+        <div class="task-elig-grid" data-mid="${m.id}">${state.tasks.map(t=>{
+          const on = !!m.eligibility[t.id];
+          return `<label class="task-elig-chip"><span class="checkbox ${on?'checked':''}" data-task="${t.id}" role="checkbox" aria-checked="${on}" tabindex="0">${checkSvg}</span><span class="task-elig-chip-label">${escHtml(t.name)}</span></label>`;
+        }).join('')}</div>
+      </div>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.checkbox').forEach(cb=>{
+    const toggle = ()=>{
+      cb.classList.toggle('checked');
+      cb.setAttribute('aria-checked', cb.classList.contains('checked'));
+    };
+    cb.addEventListener('click', toggle);
+    cb.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+  });
+  enhanceSelectsIn(wrap);
+  function readRow(card){
+    const name = card.querySelector('.m-name').value.trim() || 'New person';
+    const levels = Array.from(card.querySelectorAll('.m-level-check:checked')).map(c=>c.value);
+    const email = card.querySelector('.m-email').value.trim();
+    const teamId = card.querySelector('.m-team').value;
+    const eligibility = {};
+    card.querySelectorAll('.checkbox[data-task]').forEach(cb=>{ eligibility[cb.dataset.task] = cb.classList.contains('checked'); });
+    return { id: card.dataset.mid, name, levels, email, teamId, eligibility };
+  }
+  wrap.querySelectorAll('.btn-save-member').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const card = btn.closest('.member-card');
+      const { email, ...updated } = readRow(card);
+      const movedTeams = updated.teamId !== currentTeamId;
+      state.members = state.members.map(m=> m.id===updated.id ? { ...m, ...updated } : m);
+      const ok = await persistMembers();
+      await saveContact(updated.id, email, (memberContacts[updated.id]&&memberContacts[updated.id].authUid) || null);
+      if(ok){ showToast('Saved'); logAudit('member.save', { name: updated.name, teamId: updated.teamId, levels: updated.levels }); }
+      if(movedTeams) renderTeamTab(); else renderTeamsList();
+    });
+  });
+// ---- Revoking access on removal ----
+// Deleting a member's row used to leave three things behind: their holiday history (orphaned,
+// nobody's), and their uid still sitting in access_control/approved (and managers, if they had
+// the tag) — meaning a removed person's Firebase account could still sign in and see everything.
+// This closes that gap; both directions (revoke / restore) are used so Undo stays fully correct.
+async function revokeMemberAccess(uid, wasManager){
+  if(!uid) return;
+  try{
+    const { db, doc, updateDoc, arrayRemove } = window.rotaDb;
+    await updateDoc(doc(db,'access_control','approved'), { uids: arrayRemove(uid) });
+    if(wasManager) await updateDoc(doc(db,'access_control','managers'), { uids: arrayRemove(uid) });
+  }catch(e){ console.warn('Could not revoke access (non-fatal)', e); }
+}
+async function restoreMemberAccess(uid, wasManager){
+  if(!uid) return;
+  try{
+    const { db, doc, updateDoc, arrayUnion } = window.rotaDb;
+    await updateDoc(doc(db,'access_control','approved'), { uids: arrayUnion(uid) });
+    if(wasManager) await updateDoc(doc(db,'access_control','managers'), { uids: arrayUnion(uid) });
+  }catch(e){ console.warn('Could not restore access (non-fatal)', e); }
+}
+  wrap.querySelectorAll('.btn-del-member').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const card = btn.closest('.member-card');
+      const mid = card.dataset.mid;
+      const member = state.members.find(m=>m.id===mid);
+      const wasManager = (member.levels||[]).includes('Manager');
+      const contact = memberContacts[mid] || { email:'', authUid:null };
+      askConfirm(`Remove ${member.name} from the team? This also drops their holiday history and revokes their access to the app.`, 'Remove', async ()=>{
+        const snapshot = JSON.parse(JSON.stringify(state.members));
+        const holidaySnapshot = { dates: (state.holidays[mid]||[]).slice(), reasons: {...(state.holidayReasons[mid]||{})} };
+        state.members = state.members.filter(m=>m.id!==mid);
+        delete state.holidays[mid];
+        delete state.holidayReasons[mid];
+        renderTeamTab();
+        await persistMembers();
+        await persistHolidays();
+        await deleteContact(mid);
+        await revokeMemberAccess(contact.authUid, wasManager);
+        logAudit('member.remove', { name: member.name, email: contact.email||'' });
+        pushUndo(async ()=>{
+          state.members = snapshot;
+          if(holidaySnapshot.dates.length || Object.keys(holidaySnapshot.reasons).length){
+            state.holidays[mid] = holidaySnapshot.dates;
+            state.holidayReasons[mid] = holidaySnapshot.reasons;
+          }
+          await persistMembers();
+          await persistHolidays();
+          await saveContact(mid, contact.email, contact.authUid);
+          await restoreMemberAccess(contact.authUid, wasManager);
+          renderTeamTab(); renderTeamsList();
+          showToast('Restored');
+        });
+        showToast(`Removed ${member.name}`, undoLast);
+      });
+    });
+  });
+}
+document.getElementById('btn-add-member').addEventListener('click', ()=>{
+  const id = 'm_'+Math.random().toString(36).slice(2,9);
+  state.members.push({id, name:'New person', levels:['IC2'], teamId:currentTeamId, eligibility: elig([])});
+  renderTeamTab();
+});
+// Global "save everything" button was removed — each member card now saves itself (see
+// renderTeamTab's .btn-save-member handler above).
+function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+// ================= TEAM SWITCHER (sidebar, always visible) =================
+function colorForTeam(teamId){
+  let hash = 0;
+  for(let i=0;i<teamId.length;i++){ hash = (hash*31 + teamId.charCodeAt(i)) >>> 0; }
+  return HOLIDAY_PALETTE[hash % HOLIDAY_PALETTE.length];
+}
+function applyTeamAccent(){
+  if(!currentTeamId) return;
+  document.documentElement.style.setProperty('--team-accent', colorForTeam(currentTeamId).bg);
+}
+function renderTeamSwitcher(){
+  const sel = document.getElementById('team-switch-select');
+  sel.innerHTML = state.teams.map(t=>`<option value="${t.id}" ${t.id===currentTeamId?'selected':''}>${escHtml(t.name)}</option>`).join('');
+  enhanceSelect(sel);
+  applyTeamAccent();
+}
+document.getElementById('team-switch-select').addEventListener('change', (e)=>{ switchTeam(e.target.value); });
+// Switching teams swaps what state.tasks/state.req/state.schedules point to (see the
+// accessors near the top), then rebuilds every team-scoped tab so nothing shows stale data
+// left over from whichever team was selected before.
+async function switchTeam(teamId){
+  currentTeamId = teamId;
+  balanceCache = null;
+  renderTeamSwitcher();
+  renderTeamTab();
+  renderTasksTab();
+  renderReqTab();
+  await renderScheduleTab();
+  await renderBalanceTab();
+  renderHolidaysTab();
+}
+
+// ================= TEAMS & PEOPLE TAB =================
+async function renderOrgTab(){
+  await loadMemberContactsForAdmin();
+  renderTeamsList();
+  renderTeamTab();
+  await renderUnassignedList();
+}
+function renderTeamsList(){
+  const wrap = document.getElementById('teams-list');
+  const managers = state.members.filter(m=> (m.levels||[]).includes('Manager'));
+  let html = '';
+  state.teams.forEach((t,ti)=>{
+    const count = state.members.filter(m=>m.teamId===t.id).length;
+    const tc = colorForTeam(t.id);
+    html += `<div class="team-row" data-ti="${ti}">
+      <span style="width:12px; height:12px; border-radius:50%; background:${tc.bg}; flex-shrink:0;" title="This team's color accent"></span>
+      <input type="text" class="team-name" value="${escAttr(t.name)}" placeholder="Team name">
+      <select class="team-manager">
+        <option value="">— no manager set —</option>
+        ${managers.map(m=>`<option value="${m.id}" ${m.id===t.managerId?'selected':''}>${escHtml(m.name)}</option>`).join('')}
+      </select>
+      <span class="muted" style="font-size:12px; white-space:nowrap;">${count} ${count===1?'person':'people'}</span>
+      <div class="spacer"></div>
+      <button class="btn secondary small btn-del-team">Remove</button>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+  enhanceSelectsIn(wrap);
+  wrap.querySelectorAll('.btn-del-team').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const row = btn.closest('[data-ti]');
+      const ti = +row.dataset.ti;
+      const team = state.teams[ti];
+      if(state.members.some(m=>m.teamId===team.id)){ showToast('Move everyone off this team before removing it'); return; }
+      if(state.teams.length<=1){ showToast('You need at least one team'); return; }
+      askConfirm(`Remove the team "${team.name}"? Its tasks and weekly needs go with it.`, 'Remove', async ()=>{
+        const teamSnapshot = JSON.parse(JSON.stringify(team));
+        const tasksSnapshot = JSON.parse(JSON.stringify(state.tasksByTeam[team.id]||[]));
+        const reqSnapshot = JSON.parse(JSON.stringify(state.reqByTeam[team.id]||{}));
+        const insertAt = ti;
+        state.teams.splice(ti,1);
+        delete state.tasksByTeam[team.id];
+        delete state.reqByTeam[team.id];
+        delete state.schedulesByTeam[team.id];
+        const ok = await safeSet('teams', state.teams);
+        if(ok) logAudit('team.remove', { name: team.name });
+        if(currentTeamId===team.id) await switchTeam(state.teams[0].id);
+        renderTeamsList();
+        renderTeamSwitcher();
+        pushUndo(async ()=>{
+          state.teams.splice(insertAt, 0, teamSnapshot);
+          state.tasksByTeam[team.id] = tasksSnapshot;
+          state.reqByTeam[team.id] = reqSnapshot;
+          await safeSet('teams', state.teams, true);
+          await safeSet('tasks_'+team.id, tasksSnapshot, true);
+          await safeSet('weekly_req_'+team.id, reqSnapshot, true);
+          renderTeamsList(); renderTeamSwitcher();
+          showToast('Restored');
+        });
+        if(ok) showToast('Team removed', undoLast);
+      });
+    });
+  });
+}
+document.getElementById('btn-add-team').addEventListener('click', ()=>{
+  const id = 'team_'+Math.random().toString(36).slice(2,9);
+  state.teams.push({id, name:'New Team', managerId:null});
+  state.tasksByTeam[id] = JSON.parse(JSON.stringify(DEFAULT_TASKS));
+  state.reqByTeam[id] = JSON.parse(JSON.stringify(DEFAULT_REQ));
+  renderTeamsList();
+  renderTeamSwitcher();
+});
+document.getElementById('btn-save-teams').addEventListener('click', async ()=>{
+  const wrap = document.getElementById('teams-list');
+  wrap.querySelectorAll('[data-ti]').forEach(row=>{
+    const ti = +row.dataset.ti;
+    const name = row.querySelector('.team-name').value.trim() || 'Untitled team';
+    const managerId = row.querySelector('.team-manager').value || null;
+    state.teams[ti] = {...state.teams[ti], name, managerId};
+  });
+  const ok = await safeSet('teams', state.teams);
+  if(ok){ showToast('Teams saved'); logAudit('team.save_all', { count: state.teams.length }); }
+  renderTeamSwitcher();
+});
+
+// People without a team yet, plus anyone who's signed up but hasn't been approved at all —
+// this is the queue an admin works from to bring new accounts in and place them on a team.
+async function fetchSignupRequests(){
+  try{
+    const { db, collection, getDocs } = window.rotaDb;
+    const snap = await getDocs(collection(db, 'signup_requests'));
+    const out = [];
+    const linkedUids = new Set(Object.values(memberContacts).map(c=>c.authUid).filter(Boolean));
+    snap.forEach(d=>{ if(!linkedUids.has(d.id)) out.push({ uid:d.id, ...d.data() }); });
+    return out;
+  }catch(e){ console.error('Could not load signup requests', e); return []; }
+}
+async function renderUnassignedList(){
+  const wrap = document.getElementById('unassigned-list');
+  const unassigned = state.members.filter(m=>!m.teamId || !state.teams.some(t=>t.id===m.teamId));
+  const pending = await fetchSignupRequests();
+  if(unassigned.length===0 && pending.length===0){
+    wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">No one's waiting for a team right now.</div>`;
+    return;
+  }
+  let html = '';
+  unassigned.forEach(m=>{
+    html += `<div class="team-row" data-mid="${m.id}">
+      <span style="font-weight:600; width:150px;">${escHtml(m.name)}</span>
+      <span class="muted" style="font-size:12px; width:170px;">${escHtml((memberContacts[m.id]&&memberContacts[m.id].email)||'no email')}</span>
+      <select class="unassigned-team-pick">${state.teams.map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join('')}</select>
+      <div class="spacer"></div>
+      <button class="btn small btn-assign-team">Assign</button>
+    </div>`;
+  });
+  pending.forEach(p=>{
+    // If whatever's on file for "name" is actually an email (or literally the email itself —
+    // e.g. an account that never went through a proper signup name field), don't pre-fill it:
+    // showing an email in the name box is exactly the bug this is meant to prevent.
+    const looksLikeRealName = p.name && !p.name.includes('@') && p.name.trim() !== (p.email||'').trim();
+    html += `<div class="team-row" data-uid="${escAttr(p.uid)}">
+      <input type="text" class="pending-name-edit" style="width:150px;" value="${looksLikeRealName?escAttr(p.name):''}" placeholder="Their name (required)">
+      <span class="muted" style="font-size:12px; width:170px;">${escHtml(p.email||'no email')} <span class="lvl-pill" style="margin-left:4px;">new signup</span></span>
+      <select class="pending-level-pick"><option value="">Level…</option>${LEVELS.map(l=>`<option value="${l}">${l}</option>`).join('')}</select>
+      <select class="pending-team-pick"><option value="">Team…</option>${state.teams.map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join('')}</select>
+      <div class="spacer"></div>
+      <button class="btn small btn-assign-pending">Approve</button>
+      <button class="btn-remove-x btn-reject-pending" title="Dismiss this request">×</button>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+  enhanceSelectsIn(wrap);
+  wrap.querySelectorAll('.btn-assign-team').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = btn.closest('[data-mid]');
+      const mid = row.dataset.mid;
+      const teamId = row.querySelector('.unassigned-team-pick').value;
+      const m = state.members.find(x=>x.id===mid);
+      if(m) m.teamId = teamId;
+      const ok = await persistMembers();
+      if(ok){ showToast('Assigned to team'); logAudit('member.assign_team', { name: m&&m.name, teamId }); }
+      await renderUnassignedList();
+      renderTeamsList();
+      if(teamId===currentTeamId) renderTeamTab();
+    });
+  });
+  wrap.querySelectorAll('.btn-assign-pending').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = btn.closest('[data-uid]');
+      const uid = row.dataset.uid;
+      const p = pending.find(x=>x.uid===uid);
+      const name = row.querySelector('.pending-name-edit').value.trim();
+      const level = row.querySelector('.pending-level-pick').value;
+      const teamId = row.querySelector('.pending-team-pick').value;
+      if(!name){ showToast('Enter their name first'); row.querySelector('.pending-name-edit').focus(); return; }
+      if(!level){ showToast('Pick a level first'); return; }
+      if(!teamId){ showToast('Pick a team first'); return; }
+      const id = 'm_'+Math.random().toString(36).slice(2,9);
+      state.members.push({ id, name, levels:[level], teamId, eligibility: elig([]) });
+      const ok = await persistMembers();
+      if(ok){
+        try{
+          const { db, doc, updateDoc, deleteDoc, arrayUnion } = window.rotaDb;
+          await saveContact(id, (p&&p.email)||'', uid);
+          await updateDoc(doc(db,'access_control','approved'), { uids: arrayUnion(uid) });
+          await deleteDoc(doc(db,'signup_requests', uid));
+          showToast('Approved and assigned');
+          logAudit('member.approve', { name, email:(p&&p.email)||'', teamId, level });
+        }catch(e){ console.error('Could not finalize approval', e); showToast('Assigned, but approval sync failed — try refreshing'); }
+      }
+      await renderUnassignedList();
+      renderTeamsList();
+      if(teamId===currentTeamId) renderTeamTab();
+    });
+  });
+  wrap.querySelectorAll('.btn-reject-pending').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const row = btn.closest('[data-uid]');
+      const uid = row.dataset.uid;
+      const p = pending.find(x=>x.uid===uid);
+      askConfirm(`Dismiss the signup request from ${p&&p.email||'this account'}? They can request again by signing in.`, 'Dismiss', async ()=>{
+        try{
+          const { db, doc, deleteDoc } = window.rotaDb;
+          await deleteDoc(doc(db,'signup_requests', uid));
+          showToast('Request dismissed');
+          logAudit('signup.reject', { email: (p&&p.email)||'' });
+        }catch(e){ console.error('Could not dismiss request', e); showToast('Could not dismiss — try refreshing'); }
+        await renderUnassignedList();
+      });
+    });
+  });
+}
+
+// ================= TASKS TAB =================
+function renderTasksTab(){
+  const wrap = document.getElementById('tasks-list');
+  let html='';
+  state.tasks.forEach((t,ti)=>{
+    html += `<div class="task-card" data-ti="${ti}">
+      <div class="task-card-head">
+        <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
+        <input type="text" class="task-name" value="${escAttr(t.name)}" placeholder="Task name">
+        <div class="row-actions">
+          <button class="btn small btn-save-task">Save</button>
+          <button class="btn-remove-x btn-del-task" title="Remove">×</button>
+        </div>
+      </div>
+      <div class="task-card-grid">
+        <div class="field">
+          <label>Restricted to</label>
+          <div class="m-level-cell">${LEVELS.map(l=>`<label class="chip-check"><input type="checkbox" class="lvl-check" data-lvl="${l}" ${t.levels&&t.levels.includes(l)?'checked':''}> ${l}</label>`).join('')}</div>
+        </div>
+        <div class="field">
+          <label>Cannot combine with</label>
+          <select class="exclude-select">
+            <option value="">— none —</option>
+            ${state.tasks.filter(o=>o.id!==t.id).map(o=>`<option value="${o.id}" ${t.excludes===o.id?'selected':''}>${escHtml(o.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Scheduling</label>
+          <label class="same-week-toggle" title="The scheduler picks one person to cover every day this task is needed that week, instead of choosing separately per day.">
+            <input type="checkbox" class="same-week-check" ${t.sameAllWeek?'checked':''}> Same person covers the whole week
+          </label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Notes / conditions</label>
+        <input type="text" class="task-notes" value="${escAttr(t.notes||'')}" placeholder="Optional">
+      </div>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+  enhanceSelectsIn(wrap);
+
+  function readTaskCard(card){
+    const ti = +card.dataset.ti;
+    const name = card.querySelector('.task-name').value.trim() || 'Untitled task';
+    const levels = Array.from(card.querySelectorAll('.lvl-check:checked')).map(c=>c.dataset.lvl);
+    const excludes = card.querySelector('.exclude-select').value || null;
+    const sameAllWeek = card.querySelector('.same-week-check').checked;
+    const notes = card.querySelector('.task-notes').value;
+    return { ti, task: { ...state.tasks[ti], name, levels, excludes, sameAllWeek, notes } };
+  }
+  wrap.querySelectorAll('.btn-save-task').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const card = btn.closest('.task-card');
+      const { ti, task } = readTaskCard(card);
+      const renamed = task.name !== state.tasks[ti].name;
+      state.tasks[ti] = task;
+      const ok = await safeSet('tasks_'+currentTeamId, state.tasks);
+      if(ok){ showToast('Saved'); logAudit('task.save', { name: task.name, teamId: currentTeamId }); }
+      renderReqTab();
+      if(renamed){ renderTeamTab(); renderTasksTab(); } // task name shows elsewhere (eligibility chips, exclude lists)
+    });
+  });
+  wrap.querySelectorAll('.btn-del-task').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const div = btn.closest('[data-ti]');
+      const ti = +div.dataset.ti;
+      const task = state.tasks[ti];
+      askConfirm(`Remove the task "${task.name}"? This drops its weekly needs and everyone's eligibility for it.`, 'Remove', ()=>{
+        const snapshot = JSON.parse(JSON.stringify(task));
+        const insertAt = ti;
+        state.tasks.splice(ti,1);
+        renderTasksTab();
+        removeTaskColumnFromTeamTable(task.id);
+        removeTaskRowFromReqTable(task.id);
+        pushUndo(()=>{
+          state.tasks.splice(insertAt, 0, snapshot);
+          renderTasksTab();
+          addTaskColumnToTeamTable(snapshot);
+          addTaskRowToReqTable(snapshot);
+          reorderTeamTableColumns();
+          reorderReqTableRows();
+          showToast('Restored');
+        });
+        showToast(`Removed ${task.name}`, undoLast);
+        logAudit('task.remove', { name: task.name, teamId: currentTeamId });
+      });
+    });
+  });
+  attachTaskDragHandlers(wrap);
+}
+
+// ---- Drag-and-drop reordering ----
+// Only the small grip handle is draggable, not the whole card, so clicking checkboxes, the
+// name field, or the notes field never accidentally starts a drag.
+let dragSrcTi = null;
+function attachTaskDragHandlers(wrap){
+  wrap.querySelectorAll('.task-card').forEach(item=>{
+    item.addEventListener('dragover', (e)=>{
+      if(dragSrcTi===null) return;
+      e.preventDefault();
+      if(item.dataset.ti !== dragSrcTi) item.classList.add('drag-over');
+    });
+    item.addEventListener('dragleave', ()=> item.classList.remove('drag-over'));
+    item.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      item.classList.remove('drag-over');
+      const targetTi = item.dataset.ti;
+      if(dragSrcTi===null || targetTi===dragSrcTi) return;
+      reorderTasks(+dragSrcTi, +targetTi);
+    });
+    const handle = item.querySelector('.drag-handle');
+    handle.addEventListener('dragstart', (e)=>{
+      dragSrcTi = item.dataset.ti;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try{ e.dataTransfer.setDragImage(item, 20, 20); }catch(err){}
+    });
+    handle.addEventListener('dragend', ()=>{
+      item.classList.remove('dragging');
+      wrap.querySelectorAll('.task-card').forEach(d=>d.classList.remove('drag-over'));
+      dragSrcTi = null;
+    });
+  });
+}
+// Moves the actual dragged row (and the matching Team/Weekly-needs columns) to their new spot
+// instead of rebuilding anything from scratch — so unsaved edits anywhere survive the reorder.
+function reorderTasks(fromIndex, toIndex){
+  const [moved] = state.tasks.splice(fromIndex, 1);
+  state.tasks.splice(toIndex, 0, moved);
+
+  const wrap = document.getElementById('tasks-list');
+  const items = Array.from(wrap.children);
+  const movedEl = items[fromIndex];
+  const referenceEl = items[toIndex];
+  if(fromIndex < toIndex) wrap.insertBefore(movedEl, referenceEl.nextSibling);
+  else wrap.insertBefore(movedEl, referenceEl);
+  Array.from(wrap.children).forEach((div,i)=> div.dataset.ti = i);
+
+  reorderTeamTableColumns();
+  reorderReqTableRows();
+}
+function reorderTeamTableColumns(){
+  const orderIds = state.tasks.map(t=>t.id);
+  document.querySelectorAll('#team-table-wrap .task-elig-grid').forEach(grid=>{
+    orderIds.forEach(id=>{
+      const cb = grid.querySelector(`.checkbox[data-task="${id}"]`);
+      if(cb) grid.appendChild(cb.closest('.task-elig-chip'));
+    });
+  });
+}
+function reorderReqTableRows(){
+  const wrap = document.getElementById('req-table-wrap');
+  const table = wrap.querySelector('table');
+  if(!table) return;
+  const tbody = table.querySelector('tbody');
+  const totalRow = table.querySelector('.req-total-row');
+  const orderIds = state.tasks.map(t=>t.id);
+  orderIds.forEach(id=>{
+    const tr = tbody.querySelector(`tr[data-task="${id}"]`);
+    if(tr) tbody.insertBefore(tr, totalRow);
+  });
+}
+// These patch the already-rendered Team and Weekly Needs tables directly, instead of doing a
+// full re-render — a full rebuild would wipe out any checkbox/number edits on those tabs that
+// haven't been saved yet. A brand-new task starts blank (unchecked / all zeros) everywhere.
+function addTaskColumnToTeamTable(task){
+  document.querySelectorAll('#team-table-wrap .task-elig-grid').forEach(grid=>{
+    const chip = document.createElement('label');
+    chip.className = 'task-elig-chip';
+    chip.innerHTML = `<span class="checkbox" data-task="${task.id}" role="checkbox" aria-checked="false" tabindex="0">${checkSvg}</span><span class="task-elig-chip-label">${escHtml(task.name)}</span>`;
+    grid.appendChild(chip);
+    const cb = chip.querySelector('.checkbox');
+    const toggle = ()=>{ cb.classList.toggle('checked'); cb.setAttribute('aria-checked', cb.classList.contains('checked')); };
+    cb.addEventListener('click', toggle);
+    cb.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+  });
+}
+function removeTaskColumnFromTeamTable(taskId){
+  document.querySelectorAll(`#team-table-wrap .checkbox[data-task="${taskId}"]`).forEach(cb=> cb.closest('.task-elig-chip').remove());
+}
+function addTaskRowToReqTable(task){
+  const wrap = document.getElementById('req-table-wrap');
+  const table = wrap.querySelector('table');
+  if(!table) return;
+  const tbody = table.querySelector('tbody');
+  const tr = document.createElement('tr');
+  tr.dataset.task = task.id;
+  let cells = `<td style="font-weight:600; text-align:left;">${escHtml(task.name)}</td>`;
+  DAYS.forEach(d=> cells += `<td><input type="number" min="0" class="req-input" data-day="${d}" value="0"></td>`);
+  tr.innerHTML = cells;
+  tbody.insertBefore(tr, tbody.firstElementChild); // straight to the top of the list
+  tr.querySelectorAll('.req-input').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const d = inp.dataset.day;
+      const sum = Array.from(wrap.querySelectorAll(`.req-input[data-day="${d}"]`)).reduce((s,el)=> s + (+el.value||0), 0);
+      wrap.querySelector(`.day-total[data-day="${d}"]`).textContent = sum;
+    });
+  });
+}
+function removeTaskRowFromReqTable(taskId){
+  const wrap = document.getElementById('req-table-wrap');
+  const tr = wrap.querySelector(`tr[data-task="${taskId}"]`);
+  if(tr) tr.remove();
+  DAYS.forEach(d=>{
+    const sum = Array.from(wrap.querySelectorAll(`.req-input[data-day="${d}"]`)).reduce((s,el)=> s+(+el.value||0), 0);
+    const totalCell = wrap.querySelector(`.day-total[data-day="${d}"]`);
+    if(totalCell) totalCell.textContent = sum;
+  });
+}
+document.getElementById('btn-add-task').addEventListener('click', ()=>{
+  const task = {id:'task_'+Math.random().toString(36).slice(2,9), name:'New task', levels:[], excludes:null, sameAllWeek:false, notes:''};
+  state.tasks.unshift(task);
+  renderTasksTab();
+  addTaskColumnToTeamTable(task);
+  addTaskRowToReqTable(task);
+});
+// Global "save everything" button was removed — each task card now saves itself (see
+// renderTasksTab's .btn-save-task handler above).
+
+// ================= REQUIREMENTS TAB =================
+function renderReqTab(){
+  const wrap = document.getElementById('req-table-wrap');
+  let html = '<table class="req-table"><thead><tr><th style="text-align:left;">Task</th>';
+  DAYS.forEach(d=> html+=`<th>${DAY_LABELS[d]}</th>`);
+  html += '</tr></thead><tbody>';
+  state.tasks.forEach(t=>{
+    const row = state.req[t.id] || {mon:0,tue:0,wed:0,thu:0,fri:0,sat:0,sun:0};
+    html += `<tr data-task="${t.id}"><td style="font-weight:600; text-align:left;">${escHtml(t.name)}</td>`;
+    DAYS.forEach(d=> html += `<td><input type="number" min="0" class="req-input" data-day="${d}" value="${row[d]||0}"></td>`);
+    html += `</tr>`;
+  });
+  html += `<tr class="req-total-row"><td style="font-weight:700; text-align:left;">Total</td>`;
+  DAYS.forEach(d=>{
+    const sum = state.tasks.reduce((s,t)=> s+((state.req[t.id]||{})[d]||0), 0);
+    html += `<td class="mono day-total" data-day="${d}" style="font-weight:700;">${sum}</td>`;
+  });
+  html += `</tr>`;
+  const teamSize = teamMembers().length;
+  html += `<tr class="req-team-row"><td style="font-weight:600; text-align:left;">Team size</td>`;
+  DAYS.forEach(()=> html += `<td class="mono" style="font-weight:600;">${teamSize}</td>`);
+  html += `</tr>`;
+  html += `<tr class="req-diff-row"><td style="font-weight:700; text-align:left;">Spare capacity</td>`;
+  DAYS.forEach(d=>{
+    const sum = state.tasks.reduce((s,t)=> s+((state.req[t.id]||{})[d]||0), 0);
+    const diff = teamSize - sum;
+    html += `<td class="mono day-diff ${diff<0?'diff-short':'diff-ok'}" data-day="${d}" style="font-weight:700;">${diff>0?'+':''}${diff}</td>`;
+  });
+  html += `</tr>`;
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.req-input').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const d = inp.dataset.day;
+      const sum = Array.from(wrap.querySelectorAll(`.req-input[data-day="${d}"]`)).reduce((s,el)=> s + (+el.value||0), 0);
+      wrap.querySelector(`.day-total[data-day="${d}"]`).textContent = sum;
+      const diff = teamSize - sum;
+      const diffCell = wrap.querySelector(`.day-diff[data-day="${d}"]`);
+      diffCell.textContent = (diff>0?'+':'')+diff;
+      diffCell.classList.toggle('diff-short', diff<0);
+      diffCell.classList.toggle('diff-ok', diff>=0);
+    });
+  });
+}
+document.getElementById('btn-save-req').addEventListener('click', async ()=>{
+  const wrap = document.getElementById('req-table-wrap');
+  const newReq = {};
+  wrap.querySelectorAll('tbody tr[data-task]').forEach(tr=>{
+    const taskId = tr.dataset.task;
+    const row = {};
+    DAYS.forEach(d=> row[d] = +tr.querySelector(`[data-day="${d}"]`).value || 0);
+    newReq[taskId] = row;
+  });
+  state.req = newReq;
+  const ok = await safeSet('weekly_req_'+currentTeamId, state.req);
+  if(ok) showToast('Weekly needs saved');
+  renderReqTab();
+});
+
+// ================= SCHEDULING ENGINE =================
+// sort() with a random comparator is a well-known trap — it's biased, not a real shuffle,
+// because sort algorithms don't call the comparator evenly across all pairs. To actually
+// randomize fairly, sort deterministically first, then Fisher-Yates shuffle within each
+// group of true ties (same key), and only those ties.
+function shuffleTiedGroups(arr, keyFn){
+  const result = [];
+  let i = 0;
+  while(i < arr.length){
+    let j = i;
+    while(j+1 < arr.length && keyFn(arr[j+1]) === keyFn(arr[i])) j++;
+    const group = arr.slice(i, j+1);
+    for(let k=group.length-1; k>0; k--){
+      const r = Math.floor(Math.random()*(k+1));
+      [group[k], group[r]] = [group[r], group[k]];
+    }
+    result.push(...group);
+    i = j+1;
+  }
+  return result;
+}
+function levelAllowed(task, memberLevels){
+  if(!task.levels || task.levels.length===0) return true;
+  const mine = Array.isArray(memberLevels) ? memberLevels : [memberLevels];
+  return task.levels.some(l=> mine.includes(l));
+}
+function isOnHoliday(memberId, dateISO){ return (state.holidays[memberId]||[]).includes(dateISO); }
+function eligibleCount(task){
+  return teamMembers().filter(m=> m.eligibility[task.id] && levelAllowed(task,m.levels)).length;
+}
+async function computeBalance(){
+  if(balanceCache) return balanceCache;
+  // opportunistically pull in any weeks saved to the cloud that this session hasn't loaded yet —
+  // best-effort only, never blocks: if the cloud is unreachable we just use what's in memory.
+  const prefix = 'schedule_'+currentTeamId+'_';
+  try{
+    const list = await window.storage.list(prefix, true);
+    if(list && list.keys){
+      const missing = list.keys.filter(k => !Object.prototype.hasOwnProperty.call(state.schedules, k.slice(prefix.length)));
+      await Promise.all(missing.map(async k=>{
+        const weekISO = k.slice(prefix.length);
+        try{
+          const res = await window.storage.get(k, true);
+          if(res) state.schedules[weekISO] = JSON.parse(res.value);
+        }catch(e){}
+      }));
+    }
+  }catch(e){}
+  const balance = {};
+  Object.values(state.schedules).forEach(weekSched=>{
+    for(const dateISO in weekSched){
+      for(const taskId in weekSched[dateISO]){
+        (weekSched[dateISO][taskId]||[]).forEach(mid=>{
+          balance[mid]=balance[mid]||{};
+          balance[mid][taskId]=(balance[mid][taskId]||0)+1;
+        });
+      }
+    }
+  });
+  balanceCache = balance;
+  return balance;
+}
+
+async function generateWeek(weekMon){
+  const balance = await computeBalance();
+  // deep-ish clone so we don't mutate the cache while simulating
+  const bal = JSON.parse(JSON.stringify(balance));
+  const dates = []; for(let i=0;i<DAYS.length;i++) dates.push(iso(addDays(weekMon,i)));
+  const schedule = {}; dates.forEach(d=> schedule[d] = {});
+  const dayKeyOf = (dISO)=> DAYS[dates.indexOf(dISO)];
+
+  // assignedByDay[dateISO][memberId] = [taskId, ...] already given to them that day
+  const assignedByDay = {}; dates.forEach(d=> assignedByDay[d] = {});
+  function existingTasks(mid, d){ return assignedByDay[d][mid] || []; }
+  function markAssigned(mid, d, taskId){
+    assignedByDay[d][mid] = assignedByDay[d][mid] || [];
+    assignedByDay[d][mid].push(taskId);
+  }
+  // A person can work as many tasks a day as needed, EXCEPT two tasks marked as excluding
+  // each other — those can never land on the same person the same day, no matter which
+  // order they'd be assigned in.
+  function canAssign(member, task, d){
+    const existing = existingTasks(member.id, d);
+    if(existing.includes(task.id)) return false;
+    if(task.excludes && existing.includes(task.excludes)) return false;
+    const conflictsWithExisting = existing.some(tid=>{
+      const et = state.tasks.find(t=>t.id===tid);
+      return et && et.excludes === task.id;
+    });
+    if(conflictsWithExisting) return false;
+    return true;
+  }
+  function bump(mid, taskId){ bal[mid]=bal[mid]||{}; bal[mid][taskId]=(bal[mid][taskId]||0)+1; }
+
+  const tasksSorted = [...state.tasks].sort((a,b)=> eligibleCount(a)-eligibleCount(b));
+  const weeklyTasks = tasksSorted.filter(t=>t.sameAllWeek);
+  const normalTasks = tasksSorted.filter(t=>!t.sameAllWeek);
+
+  // Pass 1 — tasks that must be the same person for every day they're needed this week (e.g. QA)
+  weeklyTasks.forEach(task=>{
+    const neededDays = dates.filter(d=> (state.req[task.id]||{})[dayKeyOf(d)] > 0);
+    if(neededDays.length===0){ dates.forEach(d=> schedule[d][task.id]=[]); return; }
+    const need = Math.max(...neededDays.map(d=> (state.req[task.id]||{})[dayKeyOf(d)]));
+    let candidates = teamMembers().filter(m=>
+      m.eligibility[task.id] && levelAllowed(task, m.levels) &&
+      neededDays.every(d=> !isOnHoliday(m.id,d) && canAssign(m, task, d))
+    );
+    candidates.sort((a,b)=>{
+      const ca=(bal[a.id]&&bal[a.id][task.id])||0, cb=(bal[b.id]&&bal[b.id][task.id])||0;
+      return ca-cb || a.name.localeCompare(b.name);
+    });
+    candidates = shuffleTiedGroups(candidates, m=> (bal[m.id]&&bal[m.id][task.id])||0);
+    const picked = candidates.slice(0, need);
+    dates.forEach(d=> schedule[d][task.id] = neededDays.includes(d) ? picked.map(m=>m.id) : (schedule[d][task.id]||[]));
+    neededDays.forEach(d=> picked.forEach(m=>{ markAssigned(m.id, d, task.id); bump(m.id, task.id); }));
+  });
+
+  // Pass 2 — everything else, day by day, most-constrained tasks first
+  dates.forEach(dISO=>{
+    const dayKey = dayKeyOf(dISO);
+    normalTasks.forEach(task=>{
+      const need = (state.req[task.id]||{})[dayKey] || 0;
+      if(need<=0){ schedule[dISO][task.id] = schedule[dISO][task.id] || []; return; }
+      let candidates = teamMembers().filter(m=>
+        !isOnHoliday(m.id, dISO) && m.eligibility[task.id] && levelAllowed(task,m.levels) && canAssign(m, task, dISO)
+      );
+      // Spread across people first: whoever has the fewest tasks today wins, before we even
+      // look at how balanced this specific task is. Only once everyone reasonably free today
+      // is used up does this start stacking a second (or third) task onto the same person —
+      // which is exactly "1-2 tasks each when there's enough people, more only when there isn't."
+      candidates.sort((a,b)=>{
+        const loadA = existingTasks(a.id, dISO).length, loadB = existingTasks(b.id, dISO).length;
+        if(loadA!==loadB) return loadA-loadB;
+        const ca = (bal[a.id]&&bal[a.id][task.id]) || 0;
+        const cb = (bal[b.id]&&bal[b.id][task.id]) || 0;
+        if(ca!==cb) return ca-cb;
+        return a.name.localeCompare(b.name);
+      });
+      candidates = shuffleTiedGroups(candidates, m=> `${existingTasks(m.id, dISO).length}_${(bal[m.id]&&bal[m.id][task.id])||0}`);
+      const picked = candidates.slice(0, need);
+      schedule[dISO][task.id] = picked.map(m=>m.id);
+      picked.forEach(m=>{ markAssigned(m.id, dISO, task.id); bump(m.id, task.id); });
+    });
+
+  });
+  return schedule;
+}
+
+// ================= SCHEDULE TAB =================
+async function renderScheduleTab(){
+  document.getElementById('wk-label').textContent = fmtWeek(currentWeekMonday);
+  document.getElementById('sched-status').textContent = 'Loading…';
+  currentSchedule = await loadWeek(iso(currentWeekMonday));
+  document.getElementById('sched-status').textContent = '';
+  drawScheduleGrid();
+  renderYourWeekSummary();
+}
+// Surfaces whoever is logged in right now — most useful for an admin who's also a rotation
+// participant (e.g. IC3 + Manager), so their own commitments don't get lost in the full grid.
+// Built as the same grid (day columns, merged runs, same bar shape) as the Week grid below it,
+// just filtered down to one person, so it reads as the same view rather than a different widget.
+// Shared by both the admin Schedule tab and the viewer's My Schedule tab, so "your tasks"
+// looks and behaves identically everywhere it appears — one function, two thin callers.
+function buildYourWeekTableHtml(schedule, weekMonday, me){
+  const dates = DAYS.map((d,i)=> iso(addDays(weekMonday,i)));
+  const myTasks = state.tasks.filter(t=> dates.some(dISO=> ((schedule[dISO]||{})[t.id]||[]).includes(me.id)));
+  if(myTasks.length===0) return `<div class="your-week-empty">Nothing assigned to you this week.</div>`;
+
+  const pColor = colorForMember(me.id);
+  function runsFor(taskId){
+    const runs = [];
+    let i = 0;
+    while(i < DAYS.length){
+      const mine = ((schedule[dates[i]]||{})[taskId]||[]).includes(me.id);
+      let j = i;
+      if(mine){ while(j+1 < DAYS.length && ((schedule[dates[j+1]]||{})[taskId]||[]).includes(me.id)) j++; }
+      runs.push({startIdx:i, endIdx:j, mine});
+      i = j+1;
+    }
+    return runs;
+  }
+
+  let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
+  DAYS.forEach((d,i)=>{
+    const dt = addDays(weekMonday,i);
+    html += `<th><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span></div></th>`;
+  });
+  html += '</tr></thead><tbody>';
+  myTasks.forEach(task=>{
+    html += `<tr><td class="taskname" title="${escAttr(task.name)}">${escHtml(task.name)}</td>`;
+    runsFor(task.id).forEach(run=>{
+      const span = run.endIdx - run.startIdx + 1;
+      if(!run.mine){ html += `<td ${span>1?`colspan="${span}"`:''}></td>`; return; }
+      const spanned = span > 1;
+      const primaryDate = dates[run.startIdx];
+      html += `<td ${spanned?`colspan="${span}"`:''} class="${spanned?'spanned-cell':''}"><div class="chipwrap">
+        <button class="ywd-chip" style="background:${pColor.bg}; color:${pColor.fg};" data-date="${primaryDate}" data-task="${task.id}">${escHtml(task.name)}</button>
+      </div></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+function attachYourWeekClicks(wrap, gridSelector){
+  wrap.querySelectorAll('.ywd-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const cell = document.querySelector(`${gridSelector} td[data-date="${chip.dataset.date}"][data-task="${chip.dataset.task}"]`);
+      if(!cell) return;
+      cell.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+      cell.classList.remove('grid-flash'); void cell.offsetWidth; cell.classList.add('grid-flash');
+    });
+  });
+}
+function renderYourWeekSummary(){
+  const wrap = document.getElementById('your-week-summary');
+  const card = document.getElementById('your-week-card');
+  const me = state.members.find(m=>m.id===viewerIdentityId);
+  if(!me){ card.style.display = 'none'; return; }
+  if(me.teamId !== currentTeamId){
+    card.style.display = '';
+    wrap.innerHTML = `<div class="your-week-empty">${escHtml(me.name)} isn't on this team — switch teams above to see their assignments.</div>`;
+    return;
+  }
+  card.style.display = '';
+  wrap.innerHTML = buildYourWeekTableHtml(currentSchedule, currentWeekMonday, me);
+  attachYourWeekClicks(wrap, '#sched-grid-wrap');
+}
+function memberName(id){ const m=state.members.find(x=>x.id===id); return m?m.name:'?'; }
+function memberLevel(id){ const m=state.members.find(x=>x.id===id); return m?(m.levels||[]):[]; }
+function memberLevelLabel(id){ return memberLevel(id).join('/') || '—'; }
+function levelPillsHtml(levelsArr){ return (levelsArr||[]).map(l=>`<span class="lvl-pill lvl-${l}">${l}</span>`).join(' '); }
+
+function drawScheduleGrid(){
+  const wrap = document.getElementById('sched-grid-wrap');
+  const dates = DAYS.map((d,i)=> iso(addDays(currentWeekMonday,i)));
+
+  // Group consecutive days with the exact same set of assigned people into one spanning bar —
+  // this is what lets a task with "same person all week" turned on show as one long
+  // bar instead of repeating identical cells every day, echoing the timeline view.
+  function runsFor(taskId){
+    const runs = [];
+    let i = 0;
+    while(i < DAYS.length){
+      const ids = ((currentSchedule[dates[i]]||{})[taskId]) || [];
+      const key = ids.slice().sort().join(',');
+      let j = i;
+      if(key){
+        while(j+1 < DAYS.length){
+          const nextIds = ((currentSchedule[dates[j+1]]||{})[taskId]) || [];
+          if(nextIds.slice().sort().join(',') === key) j++; else break;
+        }
+      }
+      runs.push({startIdx:i, endIdx:j, ids, dates:dates.slice(i,j+1)});
+      i = j+1;
+    }
+    return runs;
+  }
+
+  let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
+  DAYS.forEach((d,i)=>{
+    const dt = addDays(currentWeekMonday,i);
+    html += `<th><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span></div></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  state.tasks.forEach(task=>{
+    const lvlTag = (task.levels && task.levels.length) ? `<span class="task-lvl-tag">${escHtml(task.levels.join('/'))}</span>` : '';
+    html += `<tr><td class="taskname" title="${escAttr(task.name)}">${escHtml(task.name)}${lvlTag}</td>`;
+    const runs = runsFor(task.id);
+    runs.forEach(run=>{
+      const span = run.endIdx - run.startIdx + 1;
+      const primaryDate = run.dates[0];
+      const need = (state.req[task.id]||{})[DAYS[run.startIdx]] || 0;
+      const assigned = run.ids;
+      const spanned = span > 1;
+      html += `<td ${spanned?`colspan="${span}"`:''} data-date="${primaryDate}" data-task="${task.id}" data-dates="${run.dates.join(',')}" class="${spanned?'spanned-cell':''}">
+        <div class="chipwrap">`;
+      assigned.forEach(mid=>{
+        const pColor = colorForMember(mid);
+        const overlay = pColor.fg==='#EDFFE9' ? 'rgba(255,255,255,0.18)' : 'rgba(0,70,84,0.12)';
+        const isMe = mid === viewerIdentityId;
+        const isSick = run.dates.some(d=> ((state.holidayReasons[mid]||{})[d]) === 'sick');
+        html += `<div class="bar-item">
+          <button class="bar ${assigned.length>need?'short':''} ${isMe?'me':''} ${isSick?'needs-replace':''}" data-mid="${mid}" style="background:${pColor.bg}; color:${pColor.fg};" title="${isSick?'Out of office — consider replacing':'Click to see options'}">
+            <span class="bar-name">${isSick?'<span class="sick-badge" style="background:'+overlay+';">!</span> ':''}<span class="bar-name-text">${memberName(mid)}</span>${isMe?'<span class="you-tag">you</span>':''}</span>
+          </button>
+          <div class="bar-menu" data-mid="${mid}" style="background:color-mix(in srgb, ${pColor.bg} 45%, white); color:${pColor.fg==='#EDFFE9'?'var(--ink)':pColor.fg};">
+            <button class="bar-menu-item" data-action="delete">Delete</button>
+            <button class="bar-menu-item" data-action="replace">Replace with next in line</button>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+      if(spanned){
+        html += `<div class="cell-daterange">${DAY_LABELS[DAYS[run.startIdx]].slice(0,3)}–${DAY_LABELS[DAYS[run.endIdx]].slice(0,3)}</div>`;
+      }
+      if(!spanned){
+        html += `<div class="add-select"><select data-add="1"><option value="">+ add…</option>${eligibleOptionsFor(task.id, primaryDate, assigned).join('')}</select></div>`;
+      }
+      html += `</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  enhanceSelectsIn(wrap);
+
+  closeAllBarMenus();
+  wrap.querySelectorAll('.bar').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const menu = btn.nextElementSibling;
+      const wasOpen = menu.classList.contains('open');
+      closeAllBarMenus();
+      if(!wasOpen) menu.classList.add('open');
+    });
+  });
+  wrap.querySelectorAll('.bar-menu-item').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const menu = btn.closest('.bar-menu');
+      const td = btn.closest('td');
+      const taskId = td.dataset.task;
+      const mid = menu.dataset.mid;
+      const cellDates = td.dataset.dates.split(',');
+      closeAllBarMenus();
+      if(btn.dataset.action==='delete'){
+        cellDates.forEach(dISO=>{
+          currentSchedule[dISO][taskId] = (currentSchedule[dISO][taskId]||[]).filter(x=>x!==mid);
+        });
+        await saveWeek(iso(currentWeekMonday), currentSchedule);
+        balanceCache = null;
+        drawScheduleGrid();
+      } else if(btn.dataset.action==='replace'){
+        await doReplace(taskId, cellDates, mid);
+      }
+    });
+  });
+  wrap.querySelectorAll('select[data-add]').forEach(sel=>{
+    sel.addEventListener('change', async ()=>{
+      if(!sel.value) return;
+      const td = sel.closest('td');
+      const dISO = td.dataset.date, taskId = td.dataset.task;
+      currentSchedule[dISO] = currentSchedule[dISO] || {};
+      currentSchedule[dISO][taskId] = currentSchedule[dISO][taskId] || [];
+      currentSchedule[dISO][taskId].push(sel.value);
+      await saveWeek(iso(currentWeekMonday), currentSchedule);
+      balanceCache = null;
+      drawScheduleGrid();
+    });
+  });
+}
+function closeAllBarMenus(){
+  document.querySelectorAll('.bar-menu.open').forEach(m=> m.classList.remove('open'));
+}
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.bar-menu') && !e.target.closest('.bar')) closeAllBarMenus();
+});
+// Delete removes the person outright; Replace swaps them for whoever's next in the rotation
+// for that exact task (lowest worked-count among eligible, available people).
+async function doReplace(taskId, cellDates, outgoingId){
+  const excludeSet = new Set([outgoingId]);
+  let replacement = cellDates.length > 1 ? await nextInLineAcrossDates(taskId, cellDates, excludeSet) : null;
+  if(replacement){
+    cellDates.forEach(dISO=>{
+      currentSchedule[dISO][taskId] = (currentSchedule[dISO][taskId]||[]).filter(x=>x!==outgoingId);
+      currentSchedule[dISO][taskId].push(replacement.id);
+    });
+    await saveWeek(iso(currentWeekMonday), currentSchedule);
+    balanceCache = null;
+    drawScheduleGrid();
+    showToast(`Replaced with ${replacement.name}`);
+    return;
+  }
+  let anyReplaced = false, allReplaced = true;
+  for(const dISO of cellDates){
+    const r = await nextInLineSingleDate(taskId, dISO, excludeSet);
+    currentSchedule[dISO][taskId] = (currentSchedule[dISO][taskId]||[]).filter(x=>x!==outgoingId);
+    if(r){ currentSchedule[dISO][taskId].push(r.id); anyReplaced = true; } else { allReplaced = false; }
+  }
+  await saveWeek(iso(currentWeekMonday), currentSchedule);
+  balanceCache = null;
+  drawScheduleGrid();
+  if(allReplaced) showToast('Replaced');
+  else if(anyReplaced) showToast('Replaced where possible — no one eligible for the rest');
+  else showToast('No one eligible or available — removed instead');
+}
+function eligibleOptionsFor(taskId, dISO, already){
+  const task = state.tasks.find(t=>t.id===taskId);
+  return teamMembers()
+    .filter(m=> m.eligibility[taskId] && levelAllowed(task, m.levels) && !isOnHoliday(m.id,dISO) && !already.includes(m.id))
+    .map(m=>`<option value="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</option>`);
+}
+
+// What tasks does this person already hold on this date, according to the schedule as it
+// currently stands (before whatever edit we're about to make)?
+function existingTasksForMemberOnDate(memberId, dateISO){
+  const day = currentSchedule[dateISO] || {};
+  return Object.keys(day).filter(tid => (day[tid]||[]).includes(memberId));
+}
+// Same exclusion rule as the generator: two tasks marked as excluding each other can
+// never both land on the same person the same day.
+function canAssignNow(member, task, dateISO){
+  const existing = existingTasksForMemberOnDate(member.id, dateISO);
+  if(existing.includes(task.id)) return false;
+  if(task.excludes && existing.includes(task.excludes)) return false;
+  const conflictsWithExisting = existing.some(tid=>{
+    const et = state.tasks.find(t=>t.id===tid);
+    return et && et.excludes === task.id;
+  });
+  if(conflictsWithExisting) return false;
+  return true;
+}
+// Who's next up for this task on this one date — lowest worked-count first among people who
+// are eligible, the right level, not on holiday, and not already committed elsewhere that day.
+async function nextInLineSingleDate(taskId, dateISO, excludeIds){
+  const balance = await computeBalance();
+  const task = state.tasks.find(t=>t.id===taskId);
+  if(!task) return null;
+  const alreadyOnTask = ((currentSchedule[dateISO]||{})[taskId]) || [];
+  const candidates = teamMembers().filter(m=>
+    !excludeIds.has(m.id) && !alreadyOnTask.includes(m.id) &&
+    m.eligibility[taskId] && levelAllowed(task, m.levels) &&
+    !isOnHoliday(m.id, dateISO) && canAssignNow(m, task, dateISO)
+  );
+  candidates.sort((a,b)=>{
+    const ca = (balance[a.id]&&balance[a.id][taskId]) || 0, cb = (balance[b.id]&&balance[b.id][taskId]) || 0;
+    return ca-cb || a.name.localeCompare(b.name);
+  });
+  return candidates[0] || null;
+}
+// Same idea, but for a merged multi-day bar — only counts someone if they can cover every
+// date in the run, so a spanning bar always stays a single person, not a patchwork.
+async function nextInLineAcrossDates(taskId, dateISOs, excludeIds){
+  const balance = await computeBalance();
+  const task = state.tasks.find(t=>t.id===taskId);
+  if(!task) return null;
+  const candidates = teamMembers().filter(m=>
+    !excludeIds.has(m.id) && m.eligibility[taskId] && levelAllowed(task, m.levels) &&
+    dateISOs.every(dISO => {
+      const alreadyOnTask = ((currentSchedule[dISO]||{})[taskId]) || [];
+      return !alreadyOnTask.includes(m.id) && !isOnHoliday(m.id, dISO) && canAssignNow(m, task, dISO);
+    })
+  );
+  candidates.sort((a,b)=>{
+    const ca = (balance[a.id]&&balance[a.id][taskId]) || 0, cb = (balance[b.id]&&balance[b.id][taskId]) || 0;
+    return ca-cb || a.name.localeCompare(b.name);
+  });
+  return candidates[0] || null;
+}
+
+// ================= BALANCE TAB =================
+// Each task is judged only against the people actually eligible for it (checkbox + level
+// restriction), since comparing an IC3-only task across the whole team wouldn't mean anything.
+async function renderBalanceTab(){
+  const wrap = document.getElementById('balance-list');
+  wrap.innerHTML = '<div class="muted" style="padding:8px 2px;">Loading…</div>';
+  const balance = await computeBalance();
+  let html = '';
+  state.tasks.forEach(task=>{
+    const pool = teamMembers().filter(m=> m.eligibility[task.id] && levelAllowed(task, m.levels));
+    html += `<div class="card">
+      <h3>${escHtml(task.name)} <span class="muted" style="font-weight:400; font-size:12px;">— ${levelLabel(task)}, ${pool.length} eligible</span></h3>`;
+    if(pool.length===0){
+      html += `<div class="muted" style="font-size:12.5px;">No one is currently eligible for this task.</div>`;
+    } else {
+      const counts = pool.map(m=> ({m, v:(balance[m.id]&&balance[m.id][task.id])||0}));
+      const maxV = Math.max(1, ...counts.map(c=>c.v));
+      const minV = Math.min(...counts.map(c=>c.v));
+      counts.sort((a,b)=> a.v-b.v || a.m.name.localeCompare(b.m.name));
+      html += '<div class="bal-rows">';
+      counts.forEach(c=>{
+        const pct = Math.round((c.v/maxV)*100);
+        const isNext = c.v===minV;
+        html += `<div class="bal-row">
+          <div class="bal-name">${escHtml(c.m.name)} ${isNext?'<span class="bal-next">next up</span>':''}</div>
+          <div class="bal-bar-wrap"><div style="width:${pct}%; background:${colorForMember(c.m.id).bg};"></div></div>
+          <div class="bal-count mono">${c.v}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  wrap.innerHTML = html;
+}
+function levelLabel(task){
+  return (task.levels && task.levels.length) ? task.levels.join('/')+' only' : 'open to all';
+}
+
+document.getElementById('wk-prev').addEventListener('click', ()=>{ currentWeekMonday = addDays(currentWeekMonday,-7); renderScheduleTab(); });
+document.getElementById('wk-next').addEventListener('click', ()=>{ currentWeekMonday = addDays(currentWeekMonday,7); renderScheduleTab(); });
+document.getElementById('btn-generate').addEventListener('click', async ()=>{
+  document.getElementById('sched-status').textContent = 'Generating…';
+  balanceCache = null;
+  const sched = await generateWeek(currentWeekMonday);
+  currentSchedule = sched;
+  await saveWeek(iso(currentWeekMonday), sched);
+  document.getElementById('sched-status').textContent = '';
+  showToast('Schedule generated');
+  balanceCache = null;
+  drawScheduleGrid();
+});
+document.getElementById('btn-clear-week').addEventListener('click', ()=>{
+  askConfirm(`Clear the whole week of ${fmtWeek(currentWeekMonday)}? This removes every assignment for it.`, 'Clear week', async ()=>{
+    const weekISO = iso(currentWeekMonday);
+    const snapshot = JSON.parse(JSON.stringify(currentSchedule));
+    currentSchedule = {};
+    await saveWeek(weekISO, {});
+    balanceCache = null;
+    drawScheduleGrid();
+    renderYourWeekSummary();
+    pushUndo(async ()=>{
+      currentSchedule = snapshot;
+      await saveWeek(weekISO, snapshot);
+      balanceCache = null;
+      drawScheduleGrid();
+      renderYourWeekSummary();
+      showToast('Restored');
+    });
+    showToast('Week cleared', undoLast);
+  });
+});
+
+// ================= HOLIDAYS TAB =================
+// Warm, muted palette in the same family as the rest of the app, with two extra hues
+// (periwinkle, peach) so more people can each get a visually distinct colour.
+const HOLIDAY_PALETTE = [
+  {bg:'#004654', fg:'#EDFFE9'}, // Calypso
+  {bg:'#9999FF', fg:'#004654'}, // Lavender
+  {bg:'#FFA580', fg:'#004654'}, // Peach
+  {bg:'#FFE13B', fg:'#004654'}, // Lemon
+  {bg:'#B6BEBF', fg:'#004654'}, // Ash
+  {bg:'#CECEFF', fg:'#004654'}, // Lavender soft
+  {bg:'#FFD2BF', fg:'#004654'}, // Peach soft
+  {bg:'#FFEEBD', fg:'#004654'}, // Lemon soft
+];
+function colorForMember(memberId){
+  let hash = 0;
+  for(let i=0;i<memberId.length;i++){ hash = (hash*31 + memberId.charCodeAt(i)) >>> 0; }
+  return HOLIDAY_PALETTE[hash % HOLIDAY_PALETTE.length];
+}
+let selectedHolidayDates = new Set();
+
+function renderHolidaysTab(){
+  const sel = document.getElementById('hol-assign-who');
+  sel.innerHTML = teamMembers().map(m=>`<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+  enhanceSelect(sel);
+  enhanceSelect(document.getElementById('hol-assign-reason'));
+  enhanceSelect(document.getElementById('v-hol-reason'));
+  selectedHolidayDates.clear();
+  drawCalendar();
+  drawOffThisWeek();
+}
+function updateHolidaySelectionBar(){
+  const n = selectedHolidayDates.size;
+  document.getElementById('hol-selection-text').textContent = n===0
+    ? 'Click a day to select it — you can pick more than one.'
+    : `${n} day${n>1?'s':''} selected`;
+  document.getElementById('hol-assign-row').style.display = n>0 ? 'flex' : 'none';
+}
+document.getElementById('btn-hol-mark').addEventListener('click', async ()=>{
+  const who = document.getElementById('hol-assign-who').value;
+  const reason = document.getElementById('hol-assign-reason').value;
+  if(!who || selectedHolidayDates.size===0) return;
+  state.holidays[who] = state.holidays[who] || [];
+  state.holidayReasons[who] = state.holidayReasons[who] || {};
+  selectedHolidayDates.forEach(dISO=>{
+    if(!state.holidays[who].includes(dISO)) state.holidays[who].push(dISO);
+    state.holidayReasons[who][dISO] = reason;
+  });
+  const n = selectedHolidayDates.size;
+  selectedHolidayDates.clear();
+  await persistHolidays();
+  drawCalendar();
+  drawOffThisWeek();
+  showToast(`Marked ${n} day${n>1?'s':''} ${reason==='sick'?'as out of office':'off'} for ${memberName(who)}`);
+});
+document.getElementById('btn-hol-clear').addEventListener('click', ()=>{
+  selectedHolidayDates.clear();
+  drawCalendar();
+});
+
+function drawCalendar(){
+  document.getElementById('cal-label').textContent = currentCalMonth.toLocaleDateString('en-US',{month:'long', year:'numeric'});
+  const grid = document.getElementById('cal-grid');
+  let html = '';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=> html+=`<div class="dow">${d}</div>`);
+
+  const first = new Date(currentCalMonth);
+  const firstDow = (first.getDay()+6)%7; // 0=mon
+  const start = addDays(first, -firstDow);
+  const allDates = []; for(let i=0;i<42;i++) allDates.push(iso(addDays(start,i)));
+
+  for(let row=0; row<6; row++){
+    const rowDates = allDates.slice(row*7, row*7+7);
+    // Everyone off on any day in this calendar row gets a fixed "lane" for the row, so if
+    // they're off several days in a row here, their bar lines up in the same slot each day —
+    // that's what reads as one continuous stretch rather than separate unrelated bars.
+    const laneSet = new Set();
+    rowDates.forEach(dISO=> teamMembers().forEach(m=>{ if((state.holidays[m.id]||[]).includes(dISO)) laneSet.add(m.id); }));
+    const lanes = Array.from(laneSet).sort((a,b)=> memberName(a).localeCompare(memberName(b)));
+
+    rowDates.forEach((dISO, colIdx)=>{
+      const d = new Date(dISO+'T00:00:00');
+      const otherMonth = d.getMonth()!==currentCalMonth.getMonth();
+      const weekend = d.getDay()===0 || d.getDay()===6;
+      const isSelected = selectedHolidayDates.has(dISO);
+      let barsHtml = '';
+      lanes.forEach(mid=>{
+        const offToday = (state.holidays[mid]||[]).includes(dISO);
+        if(!offToday){ barsHtml += `<div class="hol-bar-gap"></div>`; return; }
+        const prevOff = colIdx>0 && (state.holidays[mid]||[]).includes(rowDates[colIdx-1]);
+        const nextOff = colIdx<6 && (state.holidays[mid]||[]).includes(rowDates[colIdx+1]);
+        const color = colorForMember(mid);
+        const radiusL = prevOff ? '0' : '7px';
+        const radiusR = nextOff ? '0' : '7px';
+        const isSick = ((state.holidayReasons[mid]||{})[dISO]) === 'sick';
+        barsHtml += `<div class="hol-bar" data-mid="${mid}" data-date="${dISO}"
+          style="background:${color.bg}; color:${color.fg};
+                 border-top-left-radius:${radiusL}; border-bottom-left-radius:${radiusL};
+                 border-top-right-radius:${radiusR}; border-bottom-right-radius:${radiusR};"
+          title="${escAttr(memberName(mid))}${isSick?' — out of office':''} — click × to remove">
+          <span>${isSick?'<span class="sick-badge">+</span> ':''}${escHtml(memberName(mid))}</span>
+          <span class="hol-bar-x">×</span>
+        </div>`;
+      });
+      html += `<div class="day ${otherMonth?'other-month':''} ${weekend?'weekend':''} ${isSelected?'day-selected':''}" data-date="${dISO}">
+        <div class="dnum">${d.getDate()}</div>
+        <div class="hol-bars">${barsHtml}</div>
+      </div>`;
+    });
+  }
+  grid.innerHTML = html;
+  updateHolidaySelectionBar();
+
+  grid.querySelectorAll('.hol-bar').forEach(bar=>{
+    bar.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const mid = bar.dataset.mid;
+      const clickedDate = bar.dataset.date;
+      askConfirm(`Remove ${memberName(mid)}'s time off starting ${clickedDate}?`, 'Remove', async ()=>{
+        // Remove the whole contiguous stretch this bar segment belongs to, not just one day.
+        const dates = (state.holidays[mid]||[]).slice().sort();
+        let runStart = clickedDate, runEnd = clickedDate;
+        while(dates.includes(iso(addDays(new Date(runStart+'T00:00:00'),-1)))) runStart = iso(addDays(new Date(runStart+'T00:00:00'),-1));
+        while(dates.includes(iso(addDays(new Date(runEnd+'T00:00:00'),1)))) runEnd = iso(addDays(new Date(runEnd+'T00:00:00'),1));
+        const removedDates = (state.holidays[mid]||[]).filter(d=> d>=runStart && d<=runEnd);
+        const reasonSnapshot = JSON.parse(JSON.stringify(state.holidayReasons[mid]||{}));
+        state.holidays[mid] = (state.holidays[mid]||[]).filter(d=> d<runStart || d>runEnd);
+        removedDates.forEach(d=>{ if(state.holidayReasons[mid]) delete state.holidayReasons[mid][d]; });
+        await persistHolidays();
+        drawCalendar();
+        drawOffThisWeek();
+        pushUndo(async ()=>{
+          state.holidays[mid] = state.holidays[mid] || [];
+          removedDates.forEach(d=>{ if(!state.holidays[mid].includes(d)) state.holidays[mid].push(d); });
+          state.holidayReasons[mid] = reasonSnapshot;
+          await persistHolidays();
+          drawCalendar(); drawOffThisWeek();
+          showToast('Restored');
+        });
+        showToast('Removed', undoLast);
+      });
+    });
+  });
+  grid.querySelectorAll('.day').forEach(day=>{
+    day.addEventListener('click', ()=>{
+      const dISO = day.dataset.date;
+      if(selectedHolidayDates.has(dISO)) selectedHolidayDates.delete(dISO);
+      else selectedHolidayDates.add(dISO);
+      drawCalendar();
+    });
+  });
+}
+function drawOffThisWeek(){
+  const wk = mondayOf(new Date());
+  const wrap = document.getElementById('off-this-week');
+  const lines = [];
+  for(let i=0;i<DAYS.length;i++){
+    const dISO = iso(addDays(wk,i));
+    const off = teamMembers().filter(m=> (state.holidays[m.id]||[]).includes(dISO));
+    const names = off.map(m=>{
+      const isSick = ((state.holidayReasons[m.id]||{})[dISO]) === 'sick';
+      return isSick ? `${escHtml(m.name)} (out of office)` : escHtml(m.name);
+    });
+    lines.push(`<div style="margin-bottom:4px;"><strong style="color:var(--ink);">${DAY_LABELS[DAYS[i]]}</strong>: ${names.length? names.join(', ') : 'everyone available'}</div>`);
+  }
+  wrap.innerHTML = lines.join('');
+}
+document.getElementById('cal-prev').addEventListener('click', ()=>{ currentCalMonth.setMonth(currentCalMonth.getMonth()-1); selectedHolidayDates.clear(); drawCalendar(); });
+document.getElementById('cal-next').addEventListener('click', ()=>{ currentCalMonth.setMonth(currentCalMonth.getMonth()+1); selectedHolidayDates.clear(); drawCalendar(); });
+
+// ================= DATA TAB (backup / restore) =================
+function buildExportPayload(){
+  return {
+    exportedAt: new Date().toISOString(),
+    teams: state.teams,
+    members: state.members,
+    tasksByTeam: state.tasksByTeam,
+    reqByTeam: state.reqByTeam,
+    holidays: state.holidays,
+    holidayReasons: state.holidayReasons,
+    schedulesByTeam: state.schedulesByTeam,
+  };
+}
+document.getElementById('btn-export').addEventListener('click', ()=>{
+  const json = JSON.stringify(buildExportPayload(), null, 2);
+  const ta = document.getElementById('export-output');
+  ta.value = json; ta.style.display = 'block';
+  try{
+    const blob = new Blob([json], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'rota-backup-'+iso(new Date())+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Backup ready — downloading, and shown below');
+  }catch(e){
+    showToast('Could not auto-download — copy the text below instead');
+  }
+});
+document.getElementById('btn-copy-export').addEventListener('click', async ()=>{
+  const ta = document.getElementById('export-output');
+  if(!ta.value){ ta.value = JSON.stringify(buildExportPayload(), null, 2); }
+  ta.style.display = 'block';
+  try{ await navigator.clipboard.writeText(ta.value); showToast('Copied to clipboard'); }
+  catch(e){ ta.focus(); ta.select(); showToast('Select the text below and copy manually'); }
+});
+document.getElementById('btn-import-paste-toggle').addEventListener('click', ()=>{
+  const ta = document.getElementById('import-input');
+  ta.style.display = ta.style.display==='none' ? 'block' : 'none';
+});
+document.getElementById('import-file').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const ta = document.getElementById('import-input');
+    ta.value = reader.result; ta.style.display = 'block';
+  };
+  reader.readAsText(file);
+});
+document.getElementById('btn-import').addEventListener('click', async ()=>{
+  const raw = document.getElementById('import-input').value.trim();
+  if(!raw){ showToast('Choose a backup file or paste its JSON first'); return; }
+  let data;
+  try{ data = JSON.parse(raw); }
+  catch(e){ showToast("That doesn't look like valid backup JSON"); return; }
+  state.teams = data.teams || state.teams;
+  state.members = data.members || state.members;
+  state.tasksByTeam = data.tasksByTeam || state.tasksByTeam;
+  state.reqByTeam = data.reqByTeam || state.reqByTeam;
+  state.holidays = data.holidays || state.holidays;
+  state.holidayReasons = data.holidayReasons || state.holidayReasons;
+  state.schedulesByTeam = data.schedulesByTeam || state.schedulesByTeam;
+  if(!state.teams.some(t=>t.id===currentTeamId)) currentTeamId = state.teams[0].id;
+  balanceCache = null;
+  await safeSet('teams', state.teams, true);
+  await persistMembers();
+  await persistHolidays();
+  for(const team of state.teams){
+    await safeSet('tasks_'+team.id, state.tasksByTeam[team.id] || DEFAULT_TASKS, true);
+    await safeSet('weekly_req_'+team.id, state.reqByTeam[team.id] || DEFAULT_REQ, true);
+  }
+  renderTeamSwitcher();
+  renderOrgTab();
+  renderTeamTab();
+  renderTasksTab();
+  renderReqTab();
+  currentSchedule = await loadWeek(iso(currentWeekMonday));
+  drawScheduleGrid();
+  await renderBalanceTab();
+  renderHolidaysTab();
+  showToast('Backup loaded');
+});
+
+// ================= ACCESS (derived from the signed-in account) =================
+// "Who you are" is now the Firebase-authenticated user, not a name picked from a dropdown.
+// window.rotaAuth.onReady() (defined in the earlier module) resolves that account against
+// access_control/approved + signup_requests and hands us one of: approved / pending / error.
+// What you SEE still comes from that person's tags in Teams & People — anyone tagged "Manager"
+// gets the admin view, everyone else gets the read-only viewer view — but which member record
+// you're bound to is no longer something you can just pick; it's looked up by authUid.
+let viewMode = null;
+let viewerIdentityId = null;
+let currentAuthUid = null;
+let viewerWeekMonday = mondayOf(new Date());
+let viewerCalMonth = new Date(); viewerCalMonth.setDate(1);
+
+function openPendingModal(info){
+  document.getElementById('pending-name').textContent = info.name || info.email || 'there';
+  document.getElementById('pending-error').style.display = info.status==='error' ? 'block' : 'none';
+  document.getElementById('pending-modal').classList.add('open');
+}
+function closePendingModal(){
+  document.getElementById('pending-modal').classList.remove('open');
+}
+document.getElementById('btn-pending-signout').addEventListener('click', ()=>{ window.rotaAuth.signOut(); });
+document.getElementById('btn-pending-refresh').addEventListener('click', ()=>{ window.location.reload(); });
+document.getElementById('btn-change-identity').addEventListener('click', ()=>{ window.rotaAuth.signOut(); });
+
+async function bindIdentityToMember(info){
+  let mid = await findMemberIdByUid(info.uid);
+  let m = mid ? state.members.find(x=>x.id===mid) : null;
+  if(!m && info.owner){
+    // The uid link can be lost (e.g. a stale overwrite) without the person changing email —
+    // recover by matching on email (owner has full contacts read access) before creating new.
+    const foundId = await findMemberIdByEmail(info.email);
+    if(foundId){ m = state.members.find(x=>x.id===foundId); if(m) await saveContact(m.id, info.email, info.uid); }
+  }
+  if(!m){
+    // Approved (or the very first bootstrap admin) but no member row yet — create one.
+    // Bootstrap admins land in the first team as a Manager; everyone else lands unassigned
+    // until an admin places them, same as the normal approval flow.
+    if(info.bootstrap || info.owner) await ensureInManagersList(info.uid); // must land in the
+      // managers list before the writes below, since the rules require it to already be true
+    const id = 'm_'+Math.random().toString(36).slice(2,9);
+    m = {
+      id, name: info.name || info.email,
+      levels: (info.bootstrap || info.owner) ? ['Manager'] : ['IC1'],
+      teamId: (info.bootstrap || info.owner) ? (state.teams[0]?.id || null) : null,
+      eligibility: elig([])
+    };
+    state.members.push(m);
+    await persistMembers();
+    await saveContact(id, info.email, info.uid);
+  } else if(info.owner){
+    // Repair, every login: whatever else changed in the stored data, the owner always ends
+    // up tagged Manager, on a real team, with their contact record intact.
+    await ensureInManagersList(info.uid);
+    let changed = false;
+    if(!(m.levels||[]).includes('Manager')){ m.levels = [...(m.levels||[]), 'Manager']; changed = true; }
+    if(!m.teamId || !state.teams.some(t=>t.id===m.teamId)){ m.teamId = state.teams[0]?.id || null; changed = true; }
+    if(changed) await persistMembers();
+    await saveContact(m.id, info.email, info.uid);
+  }
+  viewerIdentityId = m.id;
+  currentAuthUid = info.uid;
+  document.getElementById('viewer-identity-name').textContent = m.name;
+  currentTeamId = m.teamId;
+  balanceCache = null;
+  const mode = (m.levels||[]).includes('Manager') ? 'admin' : 'viewer';
+  setMode(mode);
+}
+
+function revealApp(){
+  const cover = document.getElementById('boot-cover');
+  if(cover) cover.remove();
+}
+
+function startAccessCheck(){
+  if(!window.rotaAuth){
+    // Firebase failed to load entirely — boot() already replaced #boot-cover with a real
+    // "couldn't connect" message and a reload button. Nothing to do here but not crash.
+    return;
+  }
+  window.rotaAuth.onReady(async (info)=>{
+    if(info.status === 'pending' || info.status === 'error'){
+      openPendingModal(info);
+      revealApp(); // safe now — the pending modal (opaque + blurred) is what's actually shown
+      return;
+    }
+    closePendingModal();
+    await bindIdentityToMember(info);
+    revealApp();
+  });
+}
+
+function setMode(mode){
+  viewMode = mode;
+  const root = document.getElementById('app-root');
+  root.classList.toggle('mode-admin', mode==='admin');
+  root.classList.toggle('mode-viewer', mode==='viewer');
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  if(mode==='viewer'){
+    document.querySelector('.nav-item[data-tab="myschedule"]').classList.add('active');
+    document.getElementById('tab-myschedule').classList.add('active');
+    renderViewerScheduleTab();
+    renderViewerHolidaysTab();
+  } else {
+    document.querySelector('.nav-item[data-tab="schedule"]').classList.add('active');
+    document.getElementById('tab-schedule').classList.add('active');
+    renderTeamSwitcher();
+    renderScheduleTab();
+  }
+}
+
+// ---- My schedule (read-only) ----
+async function renderViewerScheduleTab(){
+  document.getElementById('v-wk-label').textContent = fmtWeek(viewerWeekMonday);
+  const sched = await loadWeek(iso(viewerWeekMonday));
+  drawViewerScheduleGrid(sched);
+  renderViewerYourWeekSummary(sched);
+}
+function renderViewerYourWeekSummary(sched){
+  const wrap = document.getElementById('v-your-week-summary');
+  const me = state.members.find(m=>m.id===viewerIdentityId);
+  if(!wrap || !me) return;
+  wrap.innerHTML = buildYourWeekTableHtml(sched, viewerWeekMonday, me);
+  attachYourWeekClicks(wrap, '#viewer-sched-grid-wrap');
+}
+function drawViewerScheduleGrid(sched){
+  const wrap = document.getElementById('viewer-sched-grid-wrap');
+  const dates = DAYS.map((d,i)=> iso(addDays(viewerWeekMonday,i)));
+  function runsFor(taskId){
+    const runs = [];
+    let i = 0;
+    while(i < DAYS.length){
+      const ids = ((sched[dates[i]]||{})[taskId]) || [];
+      const key = ids.slice().sort().join(',');
+      let j = i;
+      if(key){
+        while(j+1 < DAYS.length){
+          const nextIds = ((sched[dates[j+1]]||{})[taskId]) || [];
+          if(nextIds.slice().sort().join(',') === key) j++; else break;
+        }
+      }
+      runs.push({startIdx:i, endIdx:j, ids, dates:dates.slice(i,j+1)});
+      i = j+1;
+    }
+    return runs;
+  }
+  let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
+  DAYS.forEach((d,i)=>{
+    const dt = addDays(viewerWeekMonday,i);
+    html += `<th><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span></div></th>`;
+  });
+  html += '</tr></thead><tbody>';
+  state.tasks.forEach(task=>{
+    html += `<tr><td class="taskname" title="${escAttr(task.name)}">${escHtml(task.name)}</td>`;
+    runsFor(task.id).forEach(run=>{
+      const span = run.endIdx - run.startIdx + 1;
+      const spanned = span > 1;
+      html += `<td ${spanned?`colspan="${span}"`:''} class="${spanned?'spanned-cell':''}"><div class="chipwrap">`;
+      run.ids.forEach(mid=>{
+        const pColor = colorForMember(mid);
+        const overlay = pColor.fg==='#EDFFE9' ? 'rgba(255,255,255,0.18)' : 'rgba(0,70,84,0.12)';
+        const isMe = mid === viewerIdentityId;
+        html += `<div class="bar-item"><div class="bar ${isMe?'me':''}" style="background:${pColor.bg}; color:${pColor.fg};">
+          <span class="bar-name"><span class="bar-name-text">${memberName(mid)}</span>${isMe?'<span class="you-tag">you</span>':''}</span>
+        </div></div>`;
+      });
+      html += `</div>${spanned?`<div class="cell-daterange">${DAY_LABELS[DAYS[run.startIdx]].slice(0,3)}–${DAY_LABELS[DAYS[run.endIdx]].slice(0,3)}</div>`:''}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+document.getElementById('v-wk-prev').addEventListener('click', ()=>{ viewerWeekMonday = addDays(viewerWeekMonday,-7); renderViewerScheduleTab(); });
+document.getElementById('v-wk-next').addEventListener('click', ()=>{ viewerWeekMonday = addDays(viewerWeekMonday,7); renderViewerScheduleTab(); });
+
+// ---- My holidays (self-service only) ----
+function renderViewerHolidaysTab(){
+  drawViewerCalendar();
+}
+function drawViewerCalendar(){
+  document.getElementById('v-cal-label').textContent = viewerCalMonth.toLocaleDateString('en-US',{month:'long', year:'numeric'});
+  const grid = document.getElementById('v-cal-grid');
+  let html = '';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=> html+=`<div class="dow">${d}</div>`);
+  const first = new Date(viewerCalMonth);
+  const firstDow = (first.getDay()+6)%7;
+  const start = addDays(first, -firstDow);
+  const allDates = []; for(let i=0;i<42;i++) allDates.push(iso(addDays(start,i)));
+
+  for(let row=0; row<6; row++){
+    const rowDates = allDates.slice(row*7, row*7+7);
+    const laneSet = new Set();
+    rowDates.forEach(dISO=> teamMembers().forEach(m=>{ if((state.holidays[m.id]||[]).includes(dISO)) laneSet.add(m.id); }));
+    const lanes = Array.from(laneSet).sort((a,b)=> memberName(a).localeCompare(memberName(b)));
+
+    rowDates.forEach((dISO, colIdx)=>{
+      const d = new Date(dISO+'T00:00:00');
+      const otherMonth = d.getMonth()!==viewerCalMonth.getMonth();
+      const weekend = d.getDay()===0 || d.getDay()===6;
+      let barsHtml = '';
+      lanes.forEach(mid=>{
+        const offToday = (state.holidays[mid]||[]).includes(dISO);
+        if(!offToday) return;
+        const prevOff = colIdx>0 && (state.holidays[mid]||[]).includes(rowDates[colIdx-1]);
+        const nextOff = colIdx<6 && (state.holidays[mid]||[]).includes(rowDates[colIdx+1]);
+        const color = colorForMember(mid);
+        const radiusL = prevOff ? '0' : '7px';
+        const radiusR = nextOff ? '0' : '7px';
+        const isMine = mid===viewerIdentityId;
+        const isSick = ((state.holidayReasons[mid]||{})[dISO]) === 'sick';
+        barsHtml += `<div class="hol-bar ${isMine?'hol-bar-mine':'hol-bar-locked'}" data-mid="${mid}" data-date="${dISO}"
+          style="background:${color.bg}; color:${color.fg};
+                 border-top-left-radius:${radiusL}; border-bottom-left-radius:${radiusL};
+                 border-top-right-radius:${radiusR}; border-bottom-right-radius:${radiusR};"
+          title="${escAttr(memberName(mid))}${isSick?' — out of office':''}${isMine?' — click × to remove':''}">
+          <span>${isSick?'<span class="sick-badge">+</span> ':''}${escHtml(memberName(mid))}</span>
+          ${isMine?'<span class="hol-bar-x">×</span>':''}
+        </div>`;
+      });
+      html += `<div class="day ${otherMonth?'other-month':''} ${weekend?'weekend':''}" data-date="${dISO}">
+        <div class="dnum">${d.getDate()}</div>
+        <div class="hol-bars">${barsHtml}</div>
+      </div>`;
+    });
+  }
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.hol-bar-mine').forEach(bar=>{
+    bar.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const clickedDate = bar.dataset.date;
+      askConfirm(`Remove your time off starting ${clickedDate}?`, 'Remove', async ()=>{
+        const dates = (state.holidays[viewerIdentityId]||[]).slice().sort();
+        let runStart = clickedDate, runEnd = clickedDate;
+        while(dates.includes(iso(addDays(new Date(runStart+'T00:00:00'),-1)))) runStart = iso(addDays(new Date(runStart+'T00:00:00'),-1));
+        while(dates.includes(iso(addDays(new Date(runEnd+'T00:00:00'),1)))) runEnd = iso(addDays(new Date(runEnd+'T00:00:00'),1));
+        const removedDates = (state.holidays[viewerIdentityId]||[]).filter(d=> d>=runStart && d<=runEnd);
+        const reasonSnapshot = JSON.parse(JSON.stringify(state.holidayReasons[viewerIdentityId]||{}));
+        state.holidays[viewerIdentityId] = (state.holidays[viewerIdentityId]||[]).filter(d=> d<runStart || d>runEnd);
+        removedDates.forEach(d=>{ if(state.holidayReasons[viewerIdentityId]) delete state.holidayReasons[viewerIdentityId][d]; });
+        await persistHolidays();
+        drawViewerCalendar();
+        pushUndo(async ()=>{
+          state.holidays[viewerIdentityId] = state.holidays[viewerIdentityId] || [];
+          removedDates.forEach(d=>{ if(!state.holidays[viewerIdentityId].includes(d)) state.holidays[viewerIdentityId].push(d); });
+          state.holidayReasons[viewerIdentityId] = reasonSnapshot;
+          await persistHolidays();
+          drawViewerCalendar();
+          showToast('Restored');
+        });
+        showToast('Removed', undoLast);
+      });
+    });
+  });
+  grid.querySelectorAll('.day').forEach(day=>{
+    day.addEventListener('click', async (e)=>{
+      if(e.target.closest('.hol-bar')) return; // bar clicks (mine or someone else's) are handled on their own, or are a no-op
+      if(!viewerIdentityId) return;
+      const dISO = day.dataset.date;
+      const reason = document.getElementById('v-hol-reason').value;
+      state.holidays[viewerIdentityId] = state.holidays[viewerIdentityId] || [];
+      state.holidayReasons[viewerIdentityId] = state.holidayReasons[viewerIdentityId] || {};
+      if(!state.holidays[viewerIdentityId].includes(dISO)) state.holidays[viewerIdentityId].push(dISO);
+      state.holidayReasons[viewerIdentityId][dISO] = reason;
+      await persistHolidays();
+      drawViewerCalendar();
+      showToast(reason==='sick' ? 'Marked yourself as out of office' : 'Marked yourself off');
+    });
+  });
+}
+document.getElementById('v-cal-prev').addEventListener('click', ()=>{ viewerCalMonth.setMonth(viewerCalMonth.getMonth()-1); drawViewerCalendar(); });
+document.getElementById('v-cal-next').addEventListener('click', ()=>{ viewerCalMonth.setMonth(viewerCalMonth.getMonth()+1); drawViewerCalendar(); });
+
+// ---------- init ----------
+window.__rotaRestart = async function(){
+  await loadState();
+  renderTeamSwitcher();
+  await renderOrgTab();
+  renderTeamTab();
+  renderTasksTab();
+  renderReqTab();
+  startAccessCheck();
+};
+(async function init(){
+  if(window.rotaReady) await window.rotaReady; // wait for the other module's async Firebase setup to actually finish
+  await window.__rotaRestart();
+})();
+
+})();
+</script>
+</body>
+</html>
