@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Rota</title>
+<title>Schedule</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -277,6 +277,11 @@
   .btn-remove-x:hover{ background:var(--brick); color:#fff; }
   .row-actions{ display:flex; gap:6px; align-items:center; }
   .cell-daterange{ font-size:10.5px; margin-top:6px; font-weight:600; display:inline-block; padding:1px 8px; border-radius:8px; background:var(--sage-soft); color:var(--ink); }
+  .cell-shortfall{ font-size:10.5px; margin-top:6px; font-weight:700; display:inline-block; padding:1px 8px; border-radius:8px; background:var(--brick-soft); color:var(--brick-text); }
+  th.bank-hol-col{ background:var(--gold-soft) !important; }
+  .cell-bank-hol-note{ font-size:10px; color:var(--ink-faint); margin-top:6px; line-height:1.3; }
+  .bank-hol-dot{ width:6px; height:6px; border-radius:50%; background:var(--brick); display:inline-block; margin-top:2px; }
+  .day.bank-holiday{ box-shadow:inset 0 0 0 2px var(--gold); }
   .task-lvl-tag{ font-size:9.5px; font-weight:700; color:var(--ink-soft); background:var(--sage-soft); border-radius:6px; padding:1px 6px; margin-left:6px; letter-spacing:0.02em; }
   .audit-log-list{ display:flex; flex-direction:column; gap:2px; max-height:420px; overflow-y:auto; }
   .audit-log-row{ display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; padding:8px 4px; border-bottom:1px solid var(--line); font-size:12.5px; }
@@ -420,7 +425,7 @@
           <path d="M4 20 C 14 8, 22 8, 28 18 C 32 25, 38 25, 40 18" stroke="#EDFFE9" stroke-width="3.4" stroke-linecap="round"/>
           <circle cx="47" cy="15" r="3.4" fill="#EDFFE9"/>
         </svg>
-        <div class="brand-name">Rota</div>
+        <div class="brand-name">Schedule</div>
       </div>
 
       <div id="viewer-identity-box">
@@ -588,6 +593,18 @@
       <div class="card">
         <h3>Off this week</h3>
         <div id="off-this-week" class="muted"></div>
+      </div>
+      <div class="card admin-only">
+        <h3>National holidays</h3>
+        <div class="hint">Pulled automatically from a public holiday calendar — nobody's assigned on these days by default, and they're marked on the calendar above. Re-sync each year, or after changing the country.</div>
+        <div class="row" style="margin-bottom:10px;">
+          <label class="muted" style="font-size:12px;">Country code</label>
+          <input type="text" id="bank-hol-country" value="LT" maxlength="2" style="width:60px; text-transform:uppercase;">
+          <button class="btn small" id="btn-sync-bank-holidays">Sync this year</button>
+          <div class="spacer"></div>
+          <span class="muted" id="bank-hol-status" style="font-size:12px;"></span>
+        </div>
+        <div id="bank-hol-list"></div>
       </div>
     </div>
 
@@ -1073,7 +1090,7 @@ let balanceCache = null;
 function mondayOf(d){ const x=new Date(d); const day=x.getDay(); const diff=(day===0?-6:1-day); x.setDate(x.getDate()+diff); x.setHours(0,0,0,0); return x; }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function iso(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
-function fmtWeek(mon){ const sun=addDays(mon,6); const opt={month:'short',day:'numeric'}; return `${mon.toLocaleDateString('en-US',opt)} – ${sun.toLocaleDateString('en-US',opt)}`; }
+function fmtWeek(mon){ const sun=addDays(mon,6); const opt={month:'long',day:'numeric'}; return `${mon.toLocaleDateString('en-US',opt)} – ${sun.toLocaleDateString('en-US',opt)}`; }
 
 // ---------- storage ----------
 // Cloud storage (window.storage) is treated as best-effort only. The in-memory `state` object
@@ -1154,6 +1171,11 @@ async function loadState(){
       state.reqByTeam[team.id] = rr ? JSON.parse(rr.value) : (legacyReq || JSON.parse(JSON.stringify(DEFAULT_REQ)));
     }catch(e){ state.reqByTeam[team.id] = legacyReq || JSON.parse(JSON.stringify(DEFAULT_REQ)); }
   }));
+
+  try{
+    const bh = await window.storage.get('bank_holidays', true);
+    state.bankHolidays = bh ? JSON.parse(bh.value) : null;
+  }catch(e){ state.bankHolidays = null; }
 
   let loadedHolidaysFromCollection = false;
   try{
@@ -2371,7 +2393,7 @@ async function generateWeek(weekMon){
 
   // Pass 1 — tasks that must be the same person for every day they're needed this week (e.g. QA)
   weeklyTasks.forEach(task=>{
-    const neededDays = dates.filter(d=> (state.req[task.id]||{})[dayKeyOf(d)] > 0);
+    const neededDays = dates.filter(d=> (state.req[task.id]||{})[dayKeyOf(d)] > 0 && !isBankHoliday(d));
     if(neededDays.length===0){ dates.forEach(d=> schedule[d][task.id]=[]); return; }
     const need = Math.max(...neededDays.map(d=> (state.req[task.id]||{})[dayKeyOf(d)]));
     let candidates = teamMembers().filter(m=>
@@ -2392,7 +2414,7 @@ async function generateWeek(weekMon){
   dates.forEach(dISO=>{
     const dayKey = dayKeyOf(dISO);
     normalTasks.forEach(task=>{
-      const need = (state.req[task.id]||{})[dayKey] || 0;
+      const need = isBankHoliday(dISO) ? 0 : ((state.req[task.id]||{})[dayKey] || 0);
       if(need<=0){ schedule[dISO][task.id] = schedule[dISO][task.id] || []; return; }
       let candidates = teamMembers().filter(m=>
         !isOnHoliday(m.id, dISO) && m.eligibility[task.id] && levelAllowed(task,m.levels) && canAssign(m, task, dISO)
@@ -2456,7 +2478,8 @@ function buildYourWeekTableHtml(schedule, weekMonday, me){
   let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
   DAYS.forEach((d,i)=>{
     const dt = addDays(weekMonday,i);
-    html += `<th><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span></div></th>`;
+    const bhName = bankHolidayName(iso(dt));
+    html += `<th class="${bhName?'bank-hol-col':''}" title="${bhName?escAttr(bhName):''}"><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span>${bhName?'<span class="bank-hol-dot"></span>':''}</div></th>`;
   });
   html += '</tr></thead><tbody>';
   myTasks.forEach(task=>{
@@ -2533,7 +2556,8 @@ function drawScheduleGrid(){
   let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
   DAYS.forEach((d,i)=>{
     const dt = addDays(currentWeekMonday,i);
-    html += `<th><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span></div></th>`;
+    const bhName = bankHolidayName(iso(dt));
+    html += `<th class="${bhName?'bank-hol-col':''}" title="${bhName?escAttr(bhName):''}"><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span>${bhName?'<span class="bank-hol-dot"></span>':''}</div></th>`;
   });
   html += '</tr></thead><tbody>';
 
@@ -2544,7 +2568,7 @@ function drawScheduleGrid(){
     runs.forEach(run=>{
       const span = run.endIdx - run.startIdx + 1;
       const primaryDate = run.dates[0];
-      const need = (state.req[task.id]||{})[DAYS[run.startIdx]] || 0;
+      const need = isBankHoliday(primaryDate) ? 0 : ((state.req[task.id]||{})[DAYS[run.startIdx]] || 0);
       const assigned = run.ids;
       const spanned = span > 1;
       html += `<td ${spanned?`colspan="${span}"`:''} data-date="${primaryDate}" data-task="${task.id}" data-dates="${run.dates.join(',')}" class="${spanned?'spanned-cell':''}">
@@ -2567,6 +2591,13 @@ function drawScheduleGrid(){
       html += `</div>`;
       if(spanned){
         html += `<div class="cell-daterange">${DAY_LABELS[DAYS[run.startIdx]].slice(0,3)}–${DAY_LABELS[DAYS[run.endIdx]].slice(0,3)}</div>`;
+      }
+      const shortfall = need - assigned.length;
+      if(shortfall > 0){
+        html += `<div class="cell-shortfall" title="${assigned.length} of ${need} filled">needs +${shortfall}</div>`;
+      }
+      if(isBankHoliday(primaryDate) && assigned.length===0){
+        html += `<div class="cell-bank-hol-note">Bank holiday — add someone if you still need coverage</div>`;
       }
       if(!spanned){
         html += `<div class="add-select"><select data-add="1"><option value="">+ add…</option>${eligibleOptionsFor(task.id, primaryDate, assigned).join('')}</select></div>`;
@@ -2816,7 +2847,56 @@ function colorForMember(memberId){
 }
 let selectedHolidayDates = new Set();
 
+// ---- National / bank holidays ----
+// Fetched from Nager.Date (date.nager.at), a free public-holiday API — no account or key
+// needed. Stored once so the app isn't re-fetching on every load; "Sync this year" re-pulls
+// on demand (e.g. once a year, or after changing the country).
+function isBankHoliday(dateISO){
+  return !!(state.bankHolidays && state.bankHolidays.dates && state.bankHolidays.dates[dateISO]);
+}
+function bankHolidayName(dateISO){
+  return (state.bankHolidays && state.bankHolidays.dates) ? state.bankHolidays.dates[dateISO] : null;
+}
+async function syncBankHolidays(){
+  const countryInput = document.getElementById('bank-hol-country');
+  const statusEl = document.getElementById('bank-hol-status');
+  const country = (countryInput.value || 'LT').trim().toUpperCase();
+  const year = new Date().getFullYear();
+  statusEl.textContent = 'Syncing…';
+  try{
+    const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`);
+    if(!res.ok) throw new Error('Request failed: '+res.status);
+    const data = await res.json();
+    const dates = {};
+    data.forEach(h=>{ dates[h.date] = h.localName || h.name || 'Public holiday'; });
+    state.bankHolidays = { country, year, dates, syncedAt: Date.now() };
+    await safeSet('bank_holidays', state.bankHolidays, true);
+    statusEl.textContent = `Synced ${Object.keys(dates).length} dates for ${year}`;
+    renderBankHolidaysList();
+    drawScheduleGrid();
+    drawCalendar();
+  }catch(e){
+    console.error('Could not sync bank holidays', e);
+    statusEl.textContent = "Couldn't reach the holiday service — check the country code, or try again.";
+  }
+}
+function renderBankHolidaysList(){
+  const wrap = document.getElementById('bank-hol-list');
+  if(!wrap) return;
+  const bh = state.bankHolidays;
+  if(!bh || !bh.dates || Object.keys(bh.dates).length===0){
+    wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">No holidays loaded yet — click Sync.</div>`;
+    return;
+  }
+  const entries = Object.entries(bh.dates).sort((a,b)=> a[0]<b[0]?-1:1);
+  wrap.innerHTML = `<div class="muted" style="font-size:11px; margin-bottom:6px;">${escHtml(bh.country)} ${bh.year} — last synced ${new Date(bh.syncedAt).toLocaleDateString()}</div>`
+    + entries.map(([d,name])=> `<div style="font-size:12.5px; padding:2px 0;">${escHtml(d)} — ${escHtml(name)}</div>`).join('');
+}
+const btnSyncBankHolidays = document.getElementById('btn-sync-bank-holidays');
+if(btnSyncBankHolidays) btnSyncBankHolidays.addEventListener('click', syncBankHolidays);
+
 function renderHolidaysTab(){
+  renderBankHolidaysList();
   const sel = document.getElementById('hol-assign-who');
   sel.innerHTML = teamMembers().map(m=>`<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
   enhanceSelect(sel);
@@ -2899,7 +2979,8 @@ function drawCalendar(){
           <span class="hol-bar-x">×</span>
         </div>`;
       });
-      html += `<div class="day ${otherMonth?'other-month':''} ${weekend?'weekend':''} ${isSelected?'day-selected':''}" data-date="${dISO}">
+      const bhName = bankHolidayName(dISO);
+      html += `<div class="day ${otherMonth?'other-month':''} ${weekend?'weekend':''} ${isSelected?'day-selected':''} ${bhName?'bank-holiday':''}" data-date="${dISO}" title="${bhName?escAttr(bhName):''}">
         <div class="dnum">${d.getDate()}</div>
         <div class="hol-bars">${barsHtml}</div>
       </div>`;
@@ -3199,7 +3280,8 @@ function drawViewerScheduleGrid(sched){
   let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
   DAYS.forEach((d,i)=>{
     const dt = addDays(viewerWeekMonday,i);
-    html += `<th><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span></div></th>`;
+    const bhName = bankHolidayName(iso(dt));
+    html += `<th class="${bhName?'bank-hol-col':''}" title="${bhName?escAttr(bhName):''}"><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span>${bhName?'<span class="bank-hol-dot"></span>':''}</div></th>`;
   });
   html += '</tr></thead><tbody>';
   state.tasks.forEach(task=>{
