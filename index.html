@@ -295,6 +295,15 @@
   .member-card, .task-card{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; background:var(--paper); }
   .member-card-head, .task-card-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .member-card-head .m-name, .task-card-head .task-name{ flex:1; font-weight:700; font-size:14.5px; min-width:0; }
+  .member-card-body{ display:none; margin-top:14px; }
+  .member-card.expanded .member-card-body{ display:block; }
+  .card-expand-toggle{
+    background:none; border:none; cursor:pointer; font-size:13px; color:var(--ink-soft);
+    padding:2px 5px; flex-shrink:0; transition:transform 0.15s ease; line-height:1;
+  }
+  .member-card.expanded .card-expand-toggle{ transform:rotate(90deg); }
+  .member-card-summary{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .member-card.expanded .member-card-summary{ display:none; }
   .member-card-grid, .task-card-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:14px; margin-bottom:14px; }
   .field label{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin-bottom:5px; }
   .m-level-cell{ display:flex; flex-wrap:wrap; gap:8px 12px; padding-top:4px; }
@@ -304,6 +313,9 @@
     display:inline-flex; align-items:center; gap:6px; padding:5px 12px 5px 6px; border-radius:20px;
     border:1.5px solid var(--line); font-size:12px; font-weight:600; color:var(--ink-soft); background:#fff; cursor:pointer;
   }
+  .field-error{ display:none; color:var(--brick-text); font-size:11px; font-weight:600; margin-top:5px; }
+  .field-error.show{ display:block; }
+  input.field-invalid{ border-color:var(--brick) !important; box-shadow:0 0 0 1px var(--brick); }
   .task-elig-chip:has(.checked){ background:var(--sage-soft); border-color:var(--sage); color:var(--ink); }
 
   .fsel{ position:relative; width:100%; }
@@ -893,6 +905,20 @@ window.rotaReady = (async function boot(){
     if(approvedUids.includes(user.uid)){
       return { status:'approved', bootstrap:false, uid:user.uid, email:user.email, name:user.displayName||user.email };
     }
+    // Not approved yet — but an admin may have already created this person's row manually
+    // (a "we know you're joining" invite) with this exact email, just not linked to any
+    // account yet. Claim it instead of creating a second, duplicate person.
+    try{
+      const snap = await getDocs(query(collection(db,'member_contacts'), where('email','==', user.email)));
+      let unclaimedId = null;
+      snap.forEach(d=>{ if(!unclaimedId && !d.data().authUid) unclaimedId = d.id; });
+      if(unclaimedId){
+        await setDoc(doc(db,'member_contacts', unclaimedId), { email:user.email, authUid:user.uid });
+        await setDoc(doc(db,'claimed_links', user.uid), { memberId: unclaimedId });
+        await deleteDoc(doc(db, 'signup_requests', user.uid)).catch(()=>{});
+        return { status:'approved', bootstrap:false, uid:user.uid, email:user.email, name:user.displayName||user.email };
+      }
+    }catch(e){ console.warn('Could not check for a pre-created invite match (non-fatal)', e); }
     const reqRef = doc(db, 'signup_requests', user.uid);
     let reqSnap = await getDoc(reqRef);
     if(!reqSnap.exists()){
@@ -1583,29 +1609,38 @@ function renderTeamTab(){
   }
   let html = '';
   teamMembers().forEach(m=>{
+    const teamName = (state.teams.find(t=>t.id===m.teamId)||{}).name || 'Unassigned';
+    const levelTags = (m.levels||[]).map(l=>`<span class="task-lvl-tag">${escHtml(l)}</span>`).join('') || `<span class="muted" style="font-size:11px;">No level set</span>`;
     html += `<div class="member-card" data-mid="${m.id}">
       <div class="member-card-head">
+        <button class="card-expand-toggle" title="Expand">▸</button>
         <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="Name">
+        <div class="member-card-summary">${levelTags}<span class="muted" style="font-size:11.5px; white-space:nowrap;">${escHtml(teamName)}</span></div>
         <div class="row-actions">
           <button class="btn small btn-save-member">Save</button>
           <button class="btn-remove-x btn-del-member" title="Remove">×</button>
         </div>
       </div>
-      <div class="member-card-grid">
-        <div class="field"><label>Level</label><div class="m-level-cell">${LEVELS.map(l=>`<label class="chip-check"><input type="checkbox" class="m-level-check" value="${l}" ${(m.levels||[]).includes(l)?'checked':''}> ${l}</label>`).join('')}</div></div>
-        <div class="field"><label>Email</label><input type="email" class="m-email" value="${escAttr((memberContacts[m.id]&&memberContacts[m.id].email)||'')}"></div>
-        <div class="field"><label>Team</label><select class="m-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===m.teamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select></div>
-      </div>
-      <div class="member-card-tasks">
-        <label>Eligible tasks</label>
-        <div class="task-elig-grid" data-mid="${m.id}">${state.tasks.map(t=>{
-          const on = !!m.eligibility[t.id];
-          return `<label class="task-elig-chip"><span class="checkbox ${on?'checked':''}" data-task="${t.id}" role="checkbox" aria-checked="${on}" tabindex="0">${checkSvg}</span><span class="task-elig-chip-label">${escHtml(t.name)}</span></label>`;
-        }).join('')}</div>
+      <div class="member-card-body">
+        <div class="member-card-grid">
+          <div class="field"><label>Level</label><div class="m-level-cell">${LEVELS.map(l=>`<label class="chip-check"><input type="checkbox" class="m-level-check" value="${l}" ${(m.levels||[]).includes(l)?'checked':''}> ${l}</label>`).join('')}</div></div>
+          <div class="field"><label>Email</label><input type="email" class="m-email" value="${escAttr((memberContacts[m.id]&&memberContacts[m.id].email)||'')}"><div class="field-error email-dupe-error"></div></div>
+          <div class="field"><label>Team</label><select class="m-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===m.teamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="member-card-tasks">
+          <label>Eligible tasks</label>
+          <div class="task-elig-grid" data-mid="${m.id}">${state.tasks.map(t=>{
+            const on = !!m.eligibility[t.id];
+            return `<label class="task-elig-chip"><span class="checkbox ${on?'checked':''}" data-task="${t.id}" role="checkbox" aria-checked="${on}" tabindex="0">${checkSvg}</span><span class="task-elig-chip-label">${escHtml(t.name)}</span></label>`;
+          }).join('')}</div>
+        </div>
       </div>
     </div>`;
   });
   wrap.innerHTML = html;
+  wrap.querySelectorAll('.card-expand-toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=> btn.closest('.member-card').classList.toggle('expanded'));
+  });
 
   wrap.querySelectorAll('.checkbox').forEach(cb=>{
     const toggle = ()=>{
@@ -1625,9 +1660,31 @@ function renderTeamTab(){
     card.querySelectorAll('.checkbox[data-task]').forEach(cb=>{ eligibility[cb.dataset.task] = cb.classList.contains('checked'); });
     return { id: card.dataset.mid, name, levels, email, teamId, eligibility };
   }
+  function checkEmailDupe(card){
+    const input = card.querySelector('.m-email');
+    const errorEl = card.querySelector('.email-dupe-error');
+    const email = input.value.trim().toLowerCase();
+    const mid = card.dataset.mid;
+    const dupe = email && Object.entries(memberContacts).find(([id,c])=> id!==mid && (c.email||'').toLowerCase()===email);
+    if(dupe){
+      const other = state.members.find(m=>m.id===dupe[0]);
+      errorEl.textContent = `${other?other.name:'Someone else'} already uses this email`;
+      errorEl.classList.add('show');
+      input.classList.add('field-invalid');
+      return true;
+    }
+    errorEl.classList.remove('show');
+    input.classList.remove('field-invalid');
+    return false;
+  }
+  wrap.querySelectorAll('.m-email').forEach(input=>{
+    checkEmailDupe(input.closest('.member-card')); // catch anything already conflicting on load
+    input.addEventListener('input', ()=> checkEmailDupe(input.closest('.member-card')));
+  });
   wrap.querySelectorAll('.btn-save-member').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const card = btn.closest('.member-card');
+      if(checkEmailDupe(card)){ showToast('Fix the email conflict before saving'); return; }
       const { email, ...updated } = readRow(card);
       const movedTeams = updated.teamId !== currentTeamId;
       state.members = state.members.map(m=> m.id===updated.id ? { ...m, ...updated } : m);
@@ -1645,17 +1702,19 @@ function renderTeamTab(){
 async function revokeMemberAccess(uid, wasManager){
   if(!uid) return;
   try{
-    const { db, doc, updateDoc, arrayRemove } = window.rotaDb;
-    await updateDoc(doc(db,'access_control','approved'), { uids: arrayRemove(uid) });
-    if(wasManager) await updateDoc(doc(db,'access_control','managers'), { uids: arrayRemove(uid) });
+    const { db, doc, updateDoc, deleteDoc, arrayRemove } = window.rotaDb;
+    await updateDoc(doc(db,'access_control','approved'), { uids: arrayRemove(uid) }).catch(()=>{});
+    if(wasManager) await updateDoc(doc(db,'access_control','managers'), { uids: arrayRemove(uid) }).catch(()=>{});
+    await deleteDoc(doc(db,'claimed_links', uid)).catch(()=>{});
   }catch(e){ console.warn('Could not revoke access (non-fatal)', e); }
 }
-async function restoreMemberAccess(uid, wasManager){
+async function restoreMemberAccess(uid, wasManager, memberId){
   if(!uid) return;
   try{
-    const { db, doc, updateDoc, arrayUnion } = window.rotaDb;
-    await updateDoc(doc(db,'access_control','approved'), { uids: arrayUnion(uid) });
-    if(wasManager) await updateDoc(doc(db,'access_control','managers'), { uids: arrayUnion(uid) });
+    const { db, doc, updateDoc, setDoc, arrayUnion } = window.rotaDb;
+    await updateDoc(doc(db,'access_control','approved'), { uids: arrayUnion(uid) }).catch(()=>{});
+    if(wasManager) await updateDoc(doc(db,'access_control','managers'), { uids: arrayUnion(uid) }).catch(()=>{});
+    if(memberId) await setDoc(doc(db,'claimed_links', uid), { memberId }).catch(()=>{});
   }catch(e){ console.warn('Could not restore access (non-fatal)', e); }
 }
   wrap.querySelectorAll('.btn-del-member').forEach(btn=>{
@@ -1686,7 +1745,7 @@ async function restoreMemberAccess(uid, wasManager){
           await persistMembers();
           await persistHolidays();
           await saveContact(mid, contact.email, contact.authUid);
-          await restoreMemberAccess(contact.authUid, wasManager);
+          await restoreMemberAccess(contact.authUid, wasManager, mid);
           renderTeamTab(); renderTeamsList();
           showToast('Restored');
         });
@@ -1699,6 +1758,8 @@ document.getElementById('btn-add-member').addEventListener('click', ()=>{
   const id = 'm_'+Math.random().toString(36).slice(2,9);
   state.members.push({id, name:'New person', levels:['IC2'], teamId:currentTeamId, eligibility: elig([])});
   renderTeamTab();
+  const card = document.querySelector(`.member-card[data-mid="${id}"]`);
+  if(card){ card.classList.add('expanded'); card.querySelector('.m-name').focus(); card.querySelector('.m-name').select(); }
 });
 // Global "save everything" button was removed — each member card now saves itself (see
 // renderTeamTab's .btn-save-member handler above).
