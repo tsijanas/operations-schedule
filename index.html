@@ -215,9 +215,10 @@
   .sched-table th:first-child, .sched-table td.taskname{ width:15%; }
   .sched-table td.taskname{
     text-align:left; font-weight:600; position:sticky; left:0;
-    background:var(--paper); z-index:2; font-size:13.5px;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    background:var(--paper); z-index:2; font-size:13.5px; overflow:hidden;
   }
+  .taskname-inner{ display:flex; flex-direction:column; justify-content:center; gap:3px; height:100%; min-height:44px; }
+  .taskname-text{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sched-table thead th:first-child{ position:sticky; left:0; z-index:3; background:var(--gold-soft); text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sched-table tbody tr:nth-child(even) td:not(.taskname){ background:rgba(23,50,58,0.02); }
   .sched-table thead th:nth-child(3), .sched-table thead th:nth-child(5), .sched-table thead th:nth-child(7),
@@ -226,7 +227,9 @@
   }
   .sched-table tbody tr:hover td{ background-color:rgba(192,147,42,0.08); }
   .sched-table tbody tr:hover td.taskname{ background-color:var(--gold-soft); }
-  .sched-table td{ padding:10px 6px; vertical-align:top; min-width:0; }
+  .sched-table td{ padding:10px 6px; vertical-align:top; min-width:0; height:0; }
+  .cell-inner{ display:flex; flex-direction:column; height:100%; min-height:70px; }
+  .cell-notice{ flex:1; display:flex; align-items:center; justify-content:center; text-align:center; padding:4px 0; }
   @media (max-width: 900px){
     .sched-table{ table-layout:auto; width:auto; min-width:100%; }
     .sched-table th:not(:first-child), .sched-table td:not(.taskname){ min-width:110px; }
@@ -237,13 +240,13 @@
   .chipwrap{ display:flex; flex-direction:column; gap:5px; min-height:26px; }
   .bar-item{ position:relative; }
   .bar{
-    display:flex; align-items:center; justify-content:space-between; gap:6px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
     background:var(--ink); color:var(--sidebar-ink); padding:7px 10px; border-radius:20px;
     font-size:12px; font-weight:700; white-space:nowrap; cursor:pointer; border:none; width:100%;
-    font-family:inherit; text-align:left; transition:filter 0.12s ease;
+    font-family:inherit; text-align:center; transition:filter 0.12s ease;
   }
   .bar:hover{ filter:brightness(1.06); }
-  .bar .bar-name{ display:flex; align-items:center; gap:6px; flex:1 1 auto; min-width:0; }
+  .bar .bar-name{ display:flex; align-items:center; justify-content:center; gap:6px; flex:1 1 auto; min-width:0; }
   .bar .bar-name-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .bar.short{ box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7); }
   .bar.needs-replace{ box-shadow: 0 0 0 2px var(--brick); }
@@ -267,7 +270,7 @@
   .bar-menu-item:hover{ background:rgba(0,0,0,0.08); }
   .bar-menu-item[data-action="delete"]{ color:var(--brick-text); }
   .bar-menu-item[data-action="delete"]:hover{ background:rgba(138,58,30,0.14); }
-  .add-select{ margin-top:7px; opacity:0.45; transition:opacity 0.15s ease; }
+  .add-select{ margin-top:4px; opacity:0.45; transition:opacity 0.15s ease; display:flex; justify-content:center; }
   .btn-remove-x{
     width:26px; height:26px; border-radius:50%; border:1px solid var(--brick);
     background:var(--brick-soft); color:var(--brick-text); font-size:15px; font-weight:700;
@@ -276,13 +279,13 @@
   }
   .btn-remove-x:hover{ background:var(--brick); color:#fff; }
   .row-actions{ display:flex; gap:6px; align-items:center; }
-  .cell-daterange{ font-size:10.5px; margin-top:6px; font-weight:600; display:inline-block; padding:1px 8px; border-radius:8px; background:var(--sage-soft); color:var(--ink); }
-  .cell-shortfall{ font-size:10.5px; margin-top:6px; font-weight:700; display:inline-block; padding:1px 8px; border-radius:8px; background:var(--brick-soft); color:var(--brick-text); }
+  .cell-daterange{ font-size:10.5px; font-weight:600; display:inline-block; padding:1px 8px; border-radius:8px; background:var(--sage-soft); color:var(--ink); }
+  .cell-shortfall{ font-size:10.5px; font-weight:700; display:inline-block; padding:1px 8px; border-radius:8px; background:var(--brick-soft); color:var(--brick-text); }
   th.bank-hol-col{ background:var(--gold-soft) !important; }
-  .cell-bank-hol-note{ font-size:10px; color:var(--ink-faint); margin-top:6px; line-height:1.3; }
+  .cell-bank-hol-note{ font-size:10px; color:var(--ink-faint); line-height:1.3; }
   .bank-hol-dot{ width:6px; height:6px; border-radius:50%; background:var(--brick); display:inline-block; margin-top:2px; }
   .day.bank-holiday{ box-shadow:inset 0 0 0 2px var(--gold); }
-  .task-lvl-tag{ font-size:9.5px; font-weight:700; color:var(--ink-soft); background:var(--sage-soft); border-radius:6px; padding:1px 6px; margin-left:6px; letter-spacing:0.02em; }
+  .task-lvl-tag{ font-size:9.5px; font-weight:700; color:var(--ink-soft); background:var(--sage-soft); border-radius:6px; padding:1px 6px; letter-spacing:0.02em; width:fit-content; }
   .audit-log-list{ display:flex; flex-direction:column; gap:2px; max-height:420px; overflow-y:auto; }
   .audit-log-row{ display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; padding:8px 4px; border-bottom:1px solid var(--line); font-size:12.5px; }
   .audit-log-when{ color:var(--ink-faint); font-size:11px; width:150px; flex-shrink:0; }
@@ -291,9 +294,15 @@
   .audit-log-detail{ font-size:11.5px; }
   td:hover .add-select{ opacity:1; }
   .add-select select, .add-select .fsel-trigger{
-    font-size:11px; padding:4px 24px 4px 12px; border:1.5px dashed var(--ink-faint); border-radius:20px;
-    background:transparent; color:var(--ink-soft); font-weight:600; text-align:center;
+    font-size:14px; padding:2px; width:26px; height:26px; border:1.5px dashed var(--ink-faint); border-radius:50%;
+    background:transparent; color:var(--ink-soft); font-weight:700; text-align:center;
+    display:flex; align-items:center; justify-content:center;
   }
+  .add-select .fsel{ width:auto; }
+  .add-select .fsel-menu{ width:max-content; max-width:260px; min-width:130px; left:50%; right:auto; transform:translateX(-50%); }
+  .add-select:has(.fsel-menu.open){ opacity:1; }
+  .add-select .fsel-trigger::after{ display:none; }
+  .add-select .fsel-trigger > span{ overflow:visible; }
   .add-select select:hover, .add-select .fsel-trigger:hover{ border-color:var(--gold); color:var(--ink); }
 
   .info-card{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; background:var(--paper); }
@@ -321,6 +330,21 @@
   .field-error{ display:none; color:var(--brick-text); font-size:11px; font-weight:600; margin-top:5px; }
   .field-error.show{ display:block; }
   input.field-invalid{ border-color:var(--brick) !important; box-shadow:0 0 0 1px var(--brick); }
+  .admin-badge{
+    font-size:9.5px; font-weight:700; color:#fff; background:var(--brick-text); border-radius:6px;
+    padding:2px 7px; letter-spacing:0.03em; text-transform:uppercase;
+  }
+  .admin-toggle-row{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 14px 0;
+    padding:9px 12px; border-radius:10px; background:var(--brick-soft); border:1px solid var(--brick);
+  }
+  .admin-toggle{ display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:var(--brick-text); cursor:pointer; }
+  .admin-toggle input{ width:15px; height:15px; accent-color:var(--brick-text); }
+  .people-group-header{
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--ink-soft); margin:18px 2px 8px 2px; padding-top:4px;
+  }
+  .people-group-header:first-child{ margin-top:2px; }
   .task-elig-chip:has(.checked){ background:var(--sage-soft); border-color:var(--sage); color:var(--ink); }
 
   .fsel{ position:relative; width:100%; }
@@ -338,8 +362,10 @@
   .fsel-menu{
     display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:60;
     background:var(--gold-soft); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow);
-    max-height:240px; overflow-y:auto; padding:4px;
+    max-height:240px; overflow-y:auto; padding:4px; transform-origin:top;
   }
+  .fsel-menu.menu-up{ top:auto; bottom:calc(100% + 4px); transform-origin:bottom; }
+  .fsel-empty{ padding:10px 12px; font-size:12px; color:var(--ink-faint); line-height:1.4; text-align:left; }
   .fsel-menu.open{ display:block; animation: barMenuGrow 0.13s ease-out; }
   .fsel-opt{
     display:flex; align-items:center; min-height:32px; width:100%; text-align:left; background:none; border:none;
@@ -1135,6 +1161,13 @@ async function loadState(){
   state.members.forEach(mem=>{
     if(!mem.teamId){ mem.teamId = state.teams[0].id; membersMigrated = true; }
     if(!mem.levels){ mem.levels = mem.level ? [mem.level] : ['IC1']; membersMigrated = true; }
+    // One-time migration: Admin access used to be implied by having "Manager" checked as a
+    // level. Now it's its own separate field — anyone who had that access keeps it explicitly,
+    // but Level itself no longer grants anything on its own going forward.
+    if(mem.isAdmin === undefined){
+      mem.isAdmin = (mem.levels||[]).includes('Manager');
+      membersMigrated = true;
+    }
   });
 
   // Pick up pre-teams global task/requirement data once, so upgrading doesn't lose it
@@ -1296,7 +1329,7 @@ let managersSyncSnapshot = null; // last-known sorted,joined manager-uid list ac
 async function syncManagerRoster(){
   if(viewMode !== 'admin') return; // only a manager/owner session has the contacts loaded to compute this correctly
   try{
-    const managerUids = state.members.filter(m=>(m.levels||[]).includes('Manager') && memberContacts[m.id]?.authUid).map(m=>memberContacts[m.id].authUid);
+    const managerUids = state.members.filter(m=>m.isAdmin && memberContacts[m.id]?.authUid).map(m=>memberContacts[m.id].authUid);
     const key = [...managerUids].sort().join(',');
     if(managersSyncSnapshot === key) return;
     const { db, doc, setDoc } = window.rotaDb;
@@ -1586,7 +1619,15 @@ function enhanceSelect(selectEl){
   }
   function buildMenu(){
     menu.innerHTML = '';
-    Array.from(selectEl.options).forEach(opt=>{
+    const visibleOptions = Array.from(selectEl.options).filter(opt=>!opt.dataset.hiddenOpt);
+    if(visibleOptions.length===0){
+      const empty = document.createElement('div');
+      empty.className = 'fsel-empty';
+      empty.textContent = 'No one is eligible and free — check Task rules or who else is booked.';
+      menu.appendChild(empty);
+      return;
+    }
+    visibleOptions.forEach(opt=>{
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'fsel-opt' + (opt.value===selectEl.value ? ' active' : '');
@@ -1602,13 +1643,42 @@ function enhanceSelect(selectEl){
       menu.appendChild(b);
     });
   }
+  function positionMenu(){
+    menu.classList.remove('menu-up');
+    const rect = trigger.getBoundingClientRect();
+    const clipAncestor = wrap.closest('.sched-table');
+    const clipBottom = clipAncestor ? clipAncestor.getBoundingClientRect().bottom : Infinity;
+    const effectiveBottom = Math.min(window.innerHeight, clipBottom);
+    const estMenuHeight = Math.min(240, menu.scrollHeight || 240);
+    if(effectiveBottom - rect.bottom < estMenuHeight && rect.top > estMenuHeight){
+      menu.classList.add('menu-up');
+    }
+  }
   trigger.addEventListener('click', (e)=>{
     e.stopPropagation();
     if(trigger.disabled) return;
     const wasOpen = menu.classList.contains('open');
     closeAllFancySelects();
-    if(!wasOpen){ buildMenu(); menu.classList.add('open'); }
+    if(!wasOpen){ buildMenu(); positionMenu(); menu.classList.add('open'); }
   });
+  // The "+add" button already fades in/out on hover rather than staying click-toggled like
+  // other dropdowns — so its menu should follow the same logic: open while hovering, gone
+  // the moment the pointer actually leaves, not lingering half-transparent.
+  // The "+add" button already fades in/out on hover rather than staying click-toggled like
+  // other dropdowns — so its menu should follow the same logic: open while hovering, gone
+  // once the pointer actually leaves. A short debounce (rather than closing instantly) means
+  // moving the mouse across the small gap between the button and the menu below it — or any
+  // other momentary, non-deliberate dip outside the area — doesn't slam it shut before a click
+  // can land.
+  if(wrap.closest('.add-select')){
+    let closeTimer = null;
+    wrap.addEventListener('mouseleave', ()=>{
+      closeTimer = setTimeout(()=> menu.classList.remove('open'), 220);
+    });
+    wrap.addEventListener('mouseenter', ()=>{
+      if(closeTimer){ clearTimeout(closeTimer); closeTimer = null; }
+    });
+  }
   syncTrigger();
   selectEl._fselSync = syncTrigger;
 }
@@ -1629,15 +1699,37 @@ function renderTeamTab(){
     wrap.innerHTML = `<div class="muted" style="padding:16px 2px;">No one's on this team yet — add someone above, or assign someone from Unassigned below.</div>`;
     return;
   }
+  function primaryGroupFor(mem){
+    if(mem.isAdmin) return 'admin';
+    const lv = mem.levels||[];
+    if(lv.includes('Manager')) return 'manager';
+    if(lv.includes('IC3')) return 'ic3';
+    if(lv.includes('IC2')) return 'ic2';
+    if(lv.includes('IC1')) return 'ic1';
+    return 'none';
+  }
+  const GROUP_DEFS = [
+    {key:'admin', label:'Admins'},
+    {key:'manager', label:'Manager'},
+    {key:'ic3', label:'IC3'},
+    {key:'ic2', label:'IC2'},
+    {key:'ic1', label:'IC1'},
+    {key:'none', label:'No level set'},
+  ];
   let html = '';
-  teamMembers().forEach(m=>{
+  GROUP_DEFS.forEach(group=>{
+   const groupMembers = teamMembers().filter(m=>primaryGroupFor(m)===group.key);
+   if(groupMembers.length===0) return;
+   html += `<div class="people-group-header">${escHtml(group.label)} <span class="muted">(${groupMembers.length})</span></div>`;
+   groupMembers.forEach(m=>{
     const teamName = (state.teams.find(t=>t.id===m.teamId)||{}).name || 'Unassigned';
     const levelTags = (m.levels||[]).map(l=>`<span class="task-lvl-tag">${escHtml(l)}</span>`).join('') || `<span class="muted" style="font-size:11px;">No level set</span>`;
+    const adminBadge = m.isAdmin ? `<span class="admin-badge" title="Has Admin access to this tool">Admin</span>` : '';
     html += `<div class="member-card" data-mid="${m.id}">
       <div class="member-card-head">
         <button class="card-expand-toggle" title="Expand">▸</button>
         <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="Name">
-        <div class="member-card-summary">${levelTags}<span class="muted" style="font-size:11.5px; white-space:nowrap;">${escHtml(teamName)}</span></div>
+        <div class="member-card-summary">${adminBadge}${levelTags}<span class="muted" style="font-size:11.5px; white-space:nowrap;">${escHtml(teamName)}</span></div>
         <div class="row-actions">
           <button class="btn small btn-save-member">Save</button>
           <button class="btn-remove-x btn-del-member" title="Remove">×</button>
@@ -1649,6 +1741,13 @@ function renderTeamTab(){
           <div class="field"><label>Email</label><input type="email" class="m-email" value="${escAttr((memberContacts[m.id]&&memberContacts[m.id].email)||'')}"><div class="field-error email-dupe-error"></div></div>
           <div class="field"><label>Team</label><select class="m-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===m.teamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select></div>
         </div>
+        <div class="admin-toggle-row">
+          <label class="admin-toggle">
+            <input type="checkbox" class="m-admin-check" ${m.isAdmin?'checked':''}>
+            <span>Admin access</span>
+          </label>
+          <span class="muted" style="font-size:11px;">Full edit access to this tool — separate from their scheduling level. Grant carefully.</span>
+        </div>
         <div class="member-card-tasks">
           <label>Eligible tasks</label>
           <div class="task-elig-grid" data-mid="${m.id}">${state.tasks.map(t=>{
@@ -1658,6 +1757,7 @@ function renderTeamTab(){
         </div>
       </div>
     </div>`;
+   });
   });
   wrap.innerHTML = html;
   wrap.querySelectorAll('.card-expand-toggle').forEach(btn=>{
@@ -1676,11 +1776,12 @@ function renderTeamTab(){
   function readRow(card){
     const name = card.querySelector('.m-name').value.trim() || 'New person';
     const levels = Array.from(card.querySelectorAll('.m-level-check:checked')).map(c=>c.value);
+    const isAdmin = card.querySelector('.m-admin-check').checked;
     const email = card.querySelector('.m-email').value.trim();
     const teamId = card.querySelector('.m-team').value;
     const eligibility = {};
     card.querySelectorAll('.checkbox[data-task]').forEach(cb=>{ eligibility[cb.dataset.task] = cb.classList.contains('checked'); });
-    return { id: card.dataset.mid, name, levels, email, teamId, eligibility };
+    return { id: card.dataset.mid, name, levels, isAdmin, email, teamId, eligibility };
   }
   function checkEmailDupe(card){
     const input = card.querySelector('.m-email');
@@ -1744,7 +1845,7 @@ async function restoreMemberAccess(uid, wasManager, memberId){
       const card = btn.closest('.member-card');
       const mid = card.dataset.mid;
       const member = state.members.find(m=>m.id===mid);
-      const wasManager = (member.levels||[]).includes('Manager');
+      const wasManager = !!member.isAdmin;
       const contact = memberContacts[mid] || { email:'', authUid:null };
       askConfirm(`Remove ${member.name} from the team? This also drops their holiday history and revokes their access to the app.`, 'Remove', async ()=>{
         const snapshot = JSON.parse(JSON.stringify(state.members));
@@ -1778,7 +1879,7 @@ async function restoreMemberAccess(uid, wasManager, memberId){
 }
 document.getElementById('btn-add-member').addEventListener('click', ()=>{
   const id = 'm_'+Math.random().toString(36).slice(2,9);
-  state.members.push({id, name:'New person', levels:['IC2'], teamId:currentTeamId, eligibility: elig([])});
+  state.members.push({id, name:'New person', levels:['IC2'], isAdmin:false, teamId:currentTeamId, eligibility: elig([])});
   renderTeamTab();
   const card = document.querySelector(`.member-card[data-mid="${id}"]`);
   if(card){ card.classList.add('expanded'); card.querySelector('.m-name').focus(); card.querySelector('.m-name').select(); }
@@ -1829,7 +1930,7 @@ async function renderOrgTab(){
 }
 function renderTeamsList(){
   const wrap = document.getElementById('teams-list');
-  const managers = state.members.filter(m=> (m.levels||[]).includes('Manager'));
+  const teamLeadOptions = state.members;
   let html = '';
   state.teams.forEach((t,ti)=>{
     const count = state.members.filter(m=>m.teamId===t.id).length;
@@ -1839,7 +1940,7 @@ function renderTeamsList(){
       <input type="text" class="team-name" value="${escAttr(t.name)}" placeholder="Team name">
       <select class="team-manager">
         <option value="">— no manager set —</option>
-        ${managers.map(m=>`<option value="${m.id}" ${m.id===t.managerId?'selected':''}>${escHtml(m.name)}</option>`).join('')}
+        ${teamLeadOptions.map(m=>`<option value="${m.id}" ${m.id===t.managerId?'selected':''}>${escHtml(m.name)}</option>`).join('')}
       </select>
       <span class="muted" style="font-size:12px; white-space:nowrap;">${count} ${count===1?'person':'people'}</span>
       <div class="spacer"></div>
@@ -2463,12 +2564,14 @@ function buildYourWeekTableHtml(schedule, weekMonday, me){
 
   const pColor = colorForMember(me.id);
   function runsFor(taskId){
+    const task = state.tasks.find(t=>t.id===taskId);
+    const allowMerge = !!(task && task.sameAllWeek);
     const runs = [];
     let i = 0;
     while(i < DAYS.length){
       const mine = ((schedule[dates[i]]||{})[taskId]||[]).includes(me.id);
       let j = i;
-      if(mine){ while(j+1 < DAYS.length && ((schedule[dates[j+1]]||{})[taskId]||[]).includes(me.id)) j++; }
+      if(mine && allowMerge){ while(j+1 < DAYS.length && ((schedule[dates[j+1]]||{})[taskId]||[]).includes(me.id)) j++; }
       runs.push({startIdx:i, endIdx:j, mine});
       i = j+1;
     }
@@ -2483,7 +2586,7 @@ function buildYourWeekTableHtml(schedule, weekMonday, me){
   });
   html += '</tr></thead><tbody>';
   myTasks.forEach(task=>{
-    html += `<tr><td class="taskname" title="${escAttr(task.name)}">${escHtml(task.name)}</td>`;
+    html += `<tr><td class="taskname" title="${escAttr(task.name)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(task.name)}</span></div></td>`;
     runsFor(task.id).forEach(run=>{
       const span = run.endIdx - run.startIdx + 1;
       if(!run.mine){ html += `<td ${span>1?`colspan="${span}"`:''}></td>`; return; }
@@ -2535,18 +2638,28 @@ function drawScheduleGrid(){
   // this is what lets a task with "same person all week" turned on show as one long
   // bar instead of repeating identical cells every day, echoing the timeline view.
   function runsFor(taskId){
+    // Only merge consecutive days into one spanning bar when this task is actually configured
+    // as "same person covers the whole week" — otherwise two days that just happen to land on
+    // the same person (fairness rotation, coincidence, manual choice) must stay fully separate,
+    // each with its own Delete/Replace, not silently combined into one.
+    //
+    // Same-all-week merging is driven by the task's weekly requirement pattern (which days it
+    // actually needs coverage), NOT by whether the current assignment happens to match across
+    // days — otherwise deleting the shared person "unmerges" the cell and lets someone fill
+    // each day separately, defeating the whole point of the setting.
+    const task = state.tasks.find(t=>t.id===taskId);
+    const allowMerge = !!(task && task.sameAllWeek);
     const runs = [];
     let i = 0;
     while(i < DAYS.length){
-      const ids = ((currentSchedule[dates[i]]||{})[taskId]) || [];
-      const key = ids.slice().sort().join(',');
       let j = i;
-      if(key){
-        while(j+1 < DAYS.length){
-          const nextIds = ((currentSchedule[dates[j+1]]||{})[taskId]) || [];
-          if(nextIds.slice().sort().join(',') === key) j++; else break;
+      if(allowMerge){
+        const neededHere = ((state.req[taskId]||{})[DAYS[i]] || 0) > 0;
+        if(neededHere){
+          while(j+1 < DAYS.length && ((state.req[taskId]||{})[DAYS[j+1]] || 0) > 0) j++;
         }
       }
+      const ids = ((currentSchedule[dates[i]]||{})[taskId]) || [];
       runs.push({startIdx:i, endIdx:j, ids, dates:dates.slice(i,j+1)});
       i = j+1;
     }
@@ -2563,7 +2676,7 @@ function drawScheduleGrid(){
 
   state.tasks.forEach(task=>{
     const lvlTag = (task.levels && task.levels.length) ? `<span class="task-lvl-tag">${escHtml(task.levels.join('/'))}</span>` : '';
-    html += `<tr><td class="taskname" title="${escAttr(task.name)}">${escHtml(task.name)}${lvlTag}</td>`;
+    html += `<tr><td class="taskname" title="${escAttr(task.name)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(task.name)}</span>${lvlTag}</div></td>`;
     const runs = runsFor(task.id);
     runs.forEach(run=>{
       const span = run.endIdx - run.startIdx + 1;
@@ -2572,6 +2685,7 @@ function drawScheduleGrid(){
       const assigned = run.ids;
       const spanned = span > 1;
       html += `<td ${spanned?`colspan="${span}"`:''} data-date="${primaryDate}" data-task="${task.id}" data-dates="${run.dates.join(',')}" class="${spanned?'spanned-cell':''}">
+        <div class="cell-inner">
         <div class="chipwrap">`;
       assigned.forEach(mid=>{
         const pColor = colorForMember(mid);
@@ -2589,20 +2703,14 @@ function drawScheduleGrid(){
         </div>`;
       });
       html += `</div>`;
-      if(spanned){
-        html += `<div class="cell-daterange">${DAY_LABELS[DAYS[run.startIdx]].slice(0,3)}–${DAY_LABELS[DAYS[run.endIdx]].slice(0,3)}</div>`;
-      }
       const shortfall = need - assigned.length;
-      if(shortfall > 0){
-        html += `<div class="cell-shortfall" title="${assigned.length} of ${need} filled">needs +${shortfall}</div>`;
-      }
-      if(isBankHoliday(primaryDate) && assigned.length===0){
-        html += `<div class="cell-bank-hol-note">Bank holiday — add someone if you still need coverage</div>`;
-      }
-      if(!spanned){
-        html += `<div class="add-select"><select data-add="1"><option value="">+ add…</option>${eligibleOptionsFor(task.id, primaryDate, assigned).join('')}</select></div>`;
-      }
-      html += `</td>`;
+      let notice = '';
+      if(spanned) notice = `<div class="cell-daterange">${DAY_LABELS[DAYS[run.startIdx]].slice(0,3)}–${DAY_LABELS[DAYS[run.endIdx]].slice(0,3)}</div>`;
+      else if(shortfall > 0) notice = `<div class="cell-shortfall" title="${assigned.length} of ${need} filled">needs +${shortfall}</div>`;
+      else if(isBankHoliday(primaryDate) && assigned.length===0) notice = `<div class="cell-bank-hol-note">Bank holiday — add someone if you still need coverage</div>`;
+      html += `<div class="cell-notice">${notice}</div>`;
+      html += `<div class="add-select"><select data-add="1"><option value="" data-hidden-opt="1">+</option>${eligibleOptionsForRun(task.id, run.dates, assigned).join('')}</select></div>`;
+      html += `</div></td>`;
     });
     html += '</tr>';
   });
@@ -2645,10 +2753,13 @@ function drawScheduleGrid(){
     sel.addEventListener('change', async ()=>{
       if(!sel.value) return;
       const td = sel.closest('td');
-      const dISO = td.dataset.date, taskId = td.dataset.task;
-      currentSchedule[dISO] = currentSchedule[dISO] || {};
-      currentSchedule[dISO][taskId] = currentSchedule[dISO][taskId] || [];
-      currentSchedule[dISO][taskId].push(sel.value);
+      const taskId = td.dataset.task;
+      const cellDates = td.dataset.dates.split(',');
+      cellDates.forEach(dISO=>{
+        currentSchedule[dISO] = currentSchedule[dISO] || {};
+        currentSchedule[dISO][taskId] = currentSchedule[dISO][taskId] || [];
+        if(!currentSchedule[dISO][taskId].includes(sel.value)) currentSchedule[dISO][taskId].push(sel.value);
+      });
       await saveWeek(iso(currentWeekMonday), currentSchedule);
       balanceCache = null;
       drawScheduleGrid();
@@ -2694,6 +2805,16 @@ function eligibleOptionsFor(taskId, dISO, already){
   const task = state.tasks.find(t=>t.id===taskId);
   return teamMembers()
     .filter(m=> m.eligibility[taskId] && levelAllowed(task, m.levels) && !isOnHoliday(m.id,dISO) && !already.includes(m.id))
+    .map(m=>`<option value="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</option>`);
+}
+// Same idea, but for a merged same-all-week run: only offer someone who's actually free
+// (eligible, right level, not on holiday, no conflicting task) on every date in the run —
+// picking them assigns them to the whole stretch at once, not just one day of it.
+function eligibleOptionsForRun(taskId, dateISOs, already){
+  const task = state.tasks.find(t=>t.id===taskId);
+  return teamMembers()
+    .filter(m=> m.eligibility[taskId] && levelAllowed(task, m.levels) && !already.includes(m.id)
+      && dateISOs.every(d=> !isOnHoliday(m.id,d) && canAssignNow(m, task, d)))
     .map(m=>`<option value="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</option>`);
 }
 
@@ -3166,14 +3287,15 @@ async function bindIdentityToMember(info){
   }
   if(!m){
     // Approved (or the very first bootstrap admin) but no member row yet — create one.
-    // Bootstrap admins land in the first team as a Manager; everyone else lands unassigned
-    // until an admin places them, same as the normal approval flow.
+    // Bootstrap admins get Admin access and land on the first team; everyone else lands
+    // unassigned, with no level presumed, until an admin places them and sets their level.
     if(info.bootstrap || info.owner) await ensureInManagersList(info.uid); // must land in the
       // managers list before the writes below, since the rules require it to already be true
     const id = 'm_'+Math.random().toString(36).slice(2,9);
     m = {
       id, name: info.name || info.email,
-      levels: (info.bootstrap || info.owner) ? ['Manager'] : ['IC1'],
+      levels: [],
+      isAdmin: !!(info.bootstrap || info.owner),
       teamId: (info.bootstrap || info.owner) ? (state.teams[0]?.id || null) : null,
       eligibility: elig([])
     };
@@ -3182,10 +3304,10 @@ async function bindIdentityToMember(info){
     await saveContact(id, info.email, info.uid);
   } else if(info.owner){
     // Repair, every login: whatever else changed in the stored data, the owner always ends
-    // up tagged Manager, on a real team, with their contact record intact.
+    // up with Admin access, on a real team, with their contact record intact.
     await ensureInManagersList(info.uid);
     let changed = false;
-    if(!(m.levels||[]).includes('Manager')){ m.levels = [...(m.levels||[]), 'Manager']; changed = true; }
+    if(!m.isAdmin){ m.isAdmin = true; changed = true; }
     if(!m.teamId || !state.teams.some(t=>t.id===m.teamId)){ m.teamId = state.teams[0]?.id || null; changed = true; }
     if(changed) await persistMembers();
     await saveContact(m.id, info.email, info.uid);
@@ -3195,7 +3317,7 @@ async function bindIdentityToMember(info){
   document.getElementById('viewer-identity-name').textContent = m.name;
   currentTeamId = m.teamId;
   balanceCache = null;
-  const mode = (m.levels||[]).includes('Manager') ? 'admin' : 'viewer';
+  const mode = m.isAdmin ? 'admin' : 'viewer';
   setMode(mode);
 }
 
@@ -3260,13 +3382,15 @@ function drawViewerScheduleGrid(sched){
   const wrap = document.getElementById('viewer-sched-grid-wrap');
   const dates = DAYS.map((d,i)=> iso(addDays(viewerWeekMonday,i)));
   function runsFor(taskId){
+    const task = state.tasks.find(t=>t.id===taskId);
+    const allowMerge = !!(task && task.sameAllWeek);
     const runs = [];
     let i = 0;
     while(i < DAYS.length){
       const ids = ((sched[dates[i]]||{})[taskId]) || [];
       const key = ids.slice().sort().join(',');
       let j = i;
-      if(key){
+      if(key && allowMerge){
         while(j+1 < DAYS.length){
           const nextIds = ((sched[dates[j+1]]||{})[taskId]) || [];
           if(nextIds.slice().sort().join(',') === key) j++; else break;
@@ -3285,7 +3409,7 @@ function drawViewerScheduleGrid(sched){
   });
   html += '</tr></thead><tbody>';
   state.tasks.forEach(task=>{
-    html += `<tr><td class="taskname" title="${escAttr(task.name)}">${escHtml(task.name)}</td>`;
+    html += `<tr><td class="taskname" title="${escAttr(task.name)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(task.name)}</span></div></td>`;
     runsFor(task.id).forEach(run=>{
       const span = run.endIdx - run.startIdx + 1;
       const spanned = span > 1;

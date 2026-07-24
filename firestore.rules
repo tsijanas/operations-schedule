@@ -61,6 +61,7 @@ service cloud.firestore {
       return d.name is string && d.name.size() > 0 && d.name.size() <= 100
         && d.levels is list && d.levels.size() <= 10
         && (d.teamId == null || d.teamId is string)
+        && (!('isAdmin' in d) || d.isAdmin is bool)
         && d.eligibility is map;
     }
     function isValidHoliday(d) {
