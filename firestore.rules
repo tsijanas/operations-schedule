@@ -35,9 +35,10 @@ service cloud.firestore {
 
     function isApproved() {
       return isOwner() || (
-        isSignedIn()
-        && exists(/databases/$(database)/documents/access_control/approved)
-        && request.auth.uid in approvedUids()
+        isSignedIn() && (
+          (exists(/databases/$(database)/documents/access_control/approved) && request.auth.uid in approvedUids())
+          || exists(/databases/$(database)/documents/claimed_links/$(request.auth.uid))
+        )
       );
     }
 
@@ -78,14 +79,45 @@ service cloud.firestore {
       return d.value is string && d.value.size() < 900000;
     }
 
+    // ---- Proof of a self-claimed invite. When someone signs up with the same email an admin
+    // already pre-entered for them (an "invite"), they claim it (see member_contacts self-claim
+    // below) instead of being queued for approval. This doc is how that grants access: the
+    // rule verifies the linked member_contacts record really does show this exact uid+email
+    // before allowing the marker to be created — nobody can fabricate a claim for an invite
+    // that isn't genuinely theirs, since get() below reads the real, already-written record.
+    match /claimed_links/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isOwner() || isManagerUid() || (
+        isSignedIn() && request.auth.uid == uid
+        && get(/databases/$(database)/documents/member_contacts/$(request.resource.data.memberId)).data.authUid == request.auth.uid
+        && get(/databases/$(database)/documents/member_contacts/$(request.resource.data.memberId)).data.email == request.auth.token.email
+      );
+      allow delete: if isOwner() || isManagerUid();
+      allow update: if false;
+    }
+
     // ---- Contact info (email, authUid), split out of app_members. Everyone approved can read
     // the roster (app_members) to see names/teams/schedules, but email addresses and the
     // technical auth-account link are Manager/owner-only — EXCEPT each person can look up their
     // own contact doc, constrained to a query on their own uid, which is how the app finds
     // "which member row is me" on login without needing broad read access. ----
     match /member_contacts/{memberId} {
-      allow read: if isOwner() || isManagerUid() || resource.data.authUid == request.auth.uid;
-      allow create, update: if (isOwner() || isManagerUid()) && isValidContact(request.resource.data);
+      allow read: if isOwner() || isManagerUid() || resource.data.authUid == request.auth.uid
+        || (isSignedIn() && resource.data.authUid == null && resource.data.email == request.auth.token.email);
+      allow create: if (isOwner() || isManagerUid()) && isValidContact(request.resource.data);
+      allow update: if isValidContact(request.resource.data) && (
+        isOwner() || isManagerUid()
+        || (
+          // Self-claim: a signed-in person may claim an unclaimed record that matches their
+          // own verified email, but only by setting authUid to exactly their own uid — the
+          // email itself can't change, and nothing else about the record can be touched this way.
+          isSignedIn()
+          && resource.data.authUid == null
+          && resource.data.email == request.auth.token.email
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.authUid == request.auth.uid
+        )
+      );
       allow delete: if isOwner() || isManagerUid();
     }
 

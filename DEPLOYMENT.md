@@ -7,6 +7,17 @@ There are two separate things to set up, and they're independent of each other:
    decision is made to replace it entirely (a much bigger separate project — see the note on
    that in the accompanying conversation/summary, not here).
 
+## A note on ports
+
+The container listens on port **3000**. Most modern deployment platforms (Railway, Render, and
+similar "point it at a repo" services) expect a container to listen on 3000 by default and will
+health-check that port automatically — this is why it's set that way here, not because the app
+needs port 3000 specifically. If a platform ever reports something like "readiness probe failed"
+or "connection refused" on a *different* port number, that platform is checking a different port
+than the container listens on — either look for a "port" setting in that platform's project
+settings and set it to 3000, or ask here and the container can be switched to whatever port that
+platform expects instead.
+
 ## Part 1 — Hosting the files on your own servers
 
 The app is packaged as a Docker container (see `Dockerfile`). Any server that can run Docker
