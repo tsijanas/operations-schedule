@@ -15,6 +15,7 @@
     --ink-faint:#4A6167;
     --line:rgba(0,70,84,0.22);
     --team-accent:#9999FF;
+    --team-accent-fg:#004654;
     --gold:#FFE13B;
     --gold-soft:#FFEEBD;
     --sage:#9999FF;
@@ -74,7 +75,6 @@
     color:var(--sidebar-ink); opacity:0.72; text-decoration:none; font-size:13.5px; font-weight:500;
     background:none; border:none; width:100%; text-align:left;
   }
-  .nav-item .num{ font-family:'IBM Plex Mono',monospace; font-size:11px; opacity:0.7; width:16px; }
   .nav-item:hover{ opacity:1; background:rgba(237,255,233,0.08); }
   .nav-item.active{ opacity:1; background:rgba(237,255,233,0.16); }
   .sidebar-foot{ margin-top:auto; padding:10px 12px; font-size:11.5px; opacity:0.5; line-height:1.5; }
@@ -114,10 +114,13 @@
   }
 
   .main{ flex:1; min-width:0; padding:6px 2px 40px 2px; }
-  .team-switcher .fsel-trigger{ border-left:5px solid var(--team-accent) !important; transition:border-color 0.2s ease; }
+  .team-switcher .fsel-trigger{
+    background:var(--team-accent) !important; color:var(--team-accent-fg) !important;
+    border-color:var(--team-accent) !important; transition:background-color 0.2s ease, color 0.2s ease;
+  }
   .page-head{
     margin-bottom:22px; border-radius:var(--radius); padding:18px 22px 20px 22px;
-    background: color-mix(in srgb, var(--team-accent) 16%, white);
+    background: color-mix(in srgb, var(--team-accent) 34%, white);
     border:1px solid var(--line); transition: background 0.2s ease;
   }
   .page-head h1{ font-size:26px; margin:0 0 4px 0; font-weight:600; }
@@ -130,14 +133,14 @@
   .card h3{ font-size:15px; margin:0 0 12px 0; font-weight:600; display:flex; align-items:center; gap:8px; }
   .card .hint{ color:var(--ink-faint); font-size:12.5px; margin:-8px 0 14px 0; }
 
-  #tab-org .card{ background:var(--sage-soft); }
-  #tab-tasks .card{ background:var(--brick-soft); }
-  #tab-requirements .card{ background:var(--gold-soft); }
-  #tab-schedule .card, #tab-myschedule .card{ background:var(--mint); }
-  #tab-balance .card{ background:var(--sage-soft); }
-  #tab-holidays .card, #tab-myholidays .card{ background:var(--gold-soft); }
+  #tab-org .card{ background:var(--paper); }
+  #tab-tasks .card{ background:var(--paper); }
+  #tab-requirements .card{ background:var(--paper); }
+  #tab-schedule .card, #tab-myschedule .card{ background:var(--paper); }
+  #tab-balance .card{ background:var(--paper); }
+  #tab-holidays .card, #tab-myholidays .card{ background:var(--paper); }
   #tab-data .card{ background:var(--paper); }
-  #tab-schedule .sched-table td.taskname, #tab-myschedule .sched-table td.taskname{ background:var(--mint); }
+  #tab-schedule .sched-table td.taskname, #tab-myschedule .sched-table td.taskname{ background:var(--paper); }
 
   table{ border-collapse:collapse; width:100%; font-size:13px; }
   th{ text-align:left; font-weight:600; color:var(--ink-soft); font-size:11.5px; text-transform:uppercase; letter-spacing:0.04em; padding:8px 10px; border-bottom:2px solid var(--line); white-space:nowrap; }
@@ -473,13 +476,13 @@
     </div>
 
     <div class="sidebar-panel">
-      <button class="nav-item admin-only active" data-tab="org"><span class="num">01</span> Teams &amp; People</button>
-      <button class="nav-item admin-only" data-tab="tasks"><span class="num">02</span> Task rules</button>
-      <button class="nav-item admin-only" data-tab="requirements"><span class="num">03</span> Weekly needs</button>
-      <button class="nav-item admin-only" data-tab="schedule"><span class="num">04</span> Schedule</button>
-      <button class="nav-item admin-only" data-tab="balance"><span class="num">05</span> Rotation balance</button>
-      <button class="nav-item admin-only" data-tab="holidays"><span class="num">06</span> Holidays</button>
-      <button class="nav-item admin-only" data-tab="data"><span class="num">07</span> Data</button>
+      <button class="nav-item admin-only active" data-tab="schedule">Schedule</button>
+      <button class="nav-item admin-only" data-tab="org">Teams &amp; People</button>
+      <button class="nav-item admin-only" data-tab="tasks">Task rules</button>
+      <button class="nav-item admin-only" data-tab="requirements">Weekly needs</button>
+      <button class="nav-item admin-only" data-tab="balance">Rotation balance</button>
+      <button class="nav-item admin-only" data-tab="holidays">Holidays</button>
+      <button class="nav-item admin-only" data-tab="data">Data</button>
 
       <button class="nav-item viewer-only active" data-tab="myschedule">My schedule</button>
       <button class="nav-item viewer-only" data-tab="myholidays">My holidays</button>
@@ -2037,13 +2040,19 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 // ================= TEAM SWITCHER (sidebar, always visible) =================
 function colorForTeam(teamId){
+  // Light-only subset of the shared palette — team accent is used as a *full* button
+  // background (not just a tint), so it must never land on the palette's one dark entry,
+  // which would make dark ink text illegible without extra per-color contrast logic.
+  const lightPalette = HOLIDAY_PALETTE.filter(c=>c.fg!=='#EDFFE9');
   let hash = 0;
   for(let i=0;i<teamId.length;i++){ hash = (hash*31 + teamId.charCodeAt(i)) >>> 0; }
-  return HOLIDAY_PALETTE[hash % HOLIDAY_PALETTE.length];
+  return lightPalette[hash % lightPalette.length];
 }
 function applyTeamAccent(){
   if(!currentTeamId) return;
-  document.documentElement.style.setProperty('--team-accent', colorForTeam(currentTeamId).bg);
+  const c = colorForTeam(currentTeamId);
+  document.documentElement.style.setProperty('--team-accent', c.bg);
+  document.documentElement.style.setProperty('--team-accent-fg', c.fg);
 }
 function renderTeamSwitcher(){
   const sel = document.getElementById('team-switch-select');
