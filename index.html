@@ -330,6 +330,11 @@
   .field-error{ display:none; color:var(--brick-text); font-size:11px; font-weight:600; margin-top:5px; }
   .field-error.show{ display:block; }
   .link-inline{ background:none; border:none; padding:0; color:var(--brick-text); font-size:11px; font-weight:700; text-decoration:underline; cursor:pointer; }
+  .pending-match-banner{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px; color:var(--brick-text);
+    background:var(--brick-soft); border:1px solid var(--brick); border-radius:8px; padding:8px 12px; margin:8px 0 0 0;
+  }
+  .dupe-badge{ font-size:9.5px; font-weight:700; color:#fff; background:var(--brick-text); border-radius:6px; padding:2px 7px; letter-spacing:0.02em; }
   input.field-invalid{ border-color:var(--brick) !important; box-shadow:0 0 0 1px var(--brick); }
   .admin-badge{
     font-size:9.5px; font-weight:700; color:#fff; background:var(--brick-text); border-radius:6px;
@@ -966,7 +971,7 @@ window.rotaReady = (async function boot(){
     const reqRef = doc(db, 'signup_requests', user.uid);
     let reqSnap = await getDoc(reqRef);
     if(!reqSnap.exists()){
-      const data = { name:user.displayName||user.email, email:user.email, createdAt:Date.now() };
+      const data = { name:user.displayName||'', email:user.email, createdAt:Date.now() };
       await setDoc(reqRef, data);
       reqSnap = { exists:()=>true, data:()=>data };
     }
@@ -1851,6 +1856,21 @@ async function mergeMembers(keepId, absorbId){
   logAudit('member.merge', { kept: keep.name, mergedAwayName: absorb.name });
   return true;
 }
+  function markDupeBadge(card, hasDupe){
+    const summary = card.querySelector('.member-card-summary');
+    if(!summary) return;
+    let badge = summary.querySelector('.dupe-badge');
+    if(hasDupe){
+      if(!badge){
+        badge = document.createElement('span');
+        badge.className = 'dupe-badge';
+        badge.textContent = '⚠ possible duplicate';
+        summary.prepend(badge);
+      }
+    } else if(badge){
+      badge.remove();
+    }
+  }
   function checkNameDupe(card){
     const input = card.querySelector('.m-name');
     const errorEl = card.querySelector('.name-dupe-error');
@@ -1918,13 +1938,17 @@ async function mergeMembers(keepId, absorbId){
     input.classList.remove('field-invalid');
     return false;
   }
-  wrap.querySelectorAll('.m-email').forEach(input=>{
-    checkEmailDupe(input.closest('.member-card')); // catch anything already conflicting on load
-    input.addEventListener('input', ()=> checkEmailDupe(input.closest('.member-card')));
-  });
-  wrap.querySelectorAll('.m-name').forEach(input=>{
-    checkNameDupe(input.closest('.member-card'));
-    input.addEventListener('input', ()=> checkNameDupe(input.closest('.member-card')));
+  function refreshDupeState(card){
+    const hasEmailDupe = checkEmailDupe(card);
+    const hasNameDupe = checkNameDupe(card);
+    markDupeBadge(card, hasEmailDupe || hasNameDupe);
+  }
+  wrap.querySelectorAll('.member-card').forEach(card=>{
+    refreshDupeState(card); // catch anything already conflicting on load
+    const emailInput = card.querySelector('.m-email');
+    const nameInput = card.querySelector('.m-name');
+    if(emailInput) emailInput.addEventListener('input', ()=> refreshDupeState(card));
+    if(nameInput) nameInput.addEventListener('input', ()=> refreshDupeState(card));
   });
   wrap.querySelectorAll('.btn-save-member').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -2163,6 +2187,23 @@ async function renderUnassignedList(){
     // e.g. an account that never went through a proper signup name field), don't pre-fill it:
     // showing an email in the name box is exactly the bug this is meant to prevent.
     const looksLikeRealName = p.name && !p.name.includes('@') && p.name.trim() !== (p.email||'').trim();
+    // Catch the duplicate at the moment it would actually be created, not after the fact:
+    // does this signup's email or name already match an existing person anywhere in the team?
+    const emailMatch = p.email && Object.entries(memberContacts).find(([id,c])=> (c.email||'').trim().toLowerCase()===p.email.trim().toLowerCase());
+    const nameMatch = looksLikeRealName && state.members.find(m=> (m.name||'').trim().toLowerCase()===p.name.trim().toLowerCase());
+    const rawMatch = emailMatch ? state.members.find(m=>m.id===emailMatch[0]) : nameMatch;
+    // Only offer to link if the matched person doesn't already have their own separate login —
+    // otherwise "linking" would silently steal a different real account's access. If they're
+    // already claimed, this needs the manual Merge in Team & People instead, which handles
+    // that case safely (keeps whichever account is real).
+    const matchMember = (rawMatch && !(memberContacts[rawMatch.id]&&memberContacts[rawMatch.id].authUid)) ? rawMatch : null;
+    html += `<div class="pending-block" data-uid="${escAttr(p.uid)}">`;
+    if(matchMember){
+      html += `<div class="pending-match-banner">
+        This looks like it could be the same person as <strong>${escHtml(matchMember.name)}</strong> (matching ${emailMatch?'email':'name'}).
+        <button type="button" class="btn small btn-link-pending" data-match="${matchMember.id}">Link to them instead</button>
+      </div>`;
+    }
     html += `<div class="team-row" data-uid="${escAttr(p.uid)}">
       <input type="text" class="pending-name-edit" style="width:150px;" value="${looksLikeRealName?escAttr(p.name):''}" placeholder="Their name (required)">
       <span class="muted" style="font-size:12px; width:170px;">${escHtml(p.email||'no email')} <span class="lvl-pill" style="margin-left:4px;">new signup</span></span>
@@ -2171,6 +2212,7 @@ async function renderUnassignedList(){
       <div class="spacer"></div>
       <button class="btn small btn-assign-pending">Approve</button>
       <button class="btn-remove-x btn-reject-pending" title="Dismiss this request">×</button>
+    </div>
     </div>`;
   });
   wrap.innerHTML = html;
@@ -2216,6 +2258,30 @@ async function renderUnassignedList(){
       await renderUnassignedList();
       renderTeamsList();
       if(teamId===currentTeamId) renderTeamTab();
+    });
+  });
+  wrap.querySelectorAll('.btn-link-pending').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const block = btn.closest('.pending-block');
+      const uid = block.dataset.uid;
+      const matchId = btn.dataset.match;
+      const match = state.members.find(m=>m.id===matchId);
+      const p = pending.find(x=>x.uid===uid);
+      if(!match) return;
+      askConfirm(`Link this signup to "${match.name}" instead of creating a new person? They'll sign in as ${match.name}, with their existing team, level, and history intact.`, 'Link', async ()=>{
+        try{
+          const { db, doc, updateDoc, deleteDoc, arrayUnion } = window.rotaDb;
+          const existingEmail = (memberContacts[matchId]&&memberContacts[matchId].email) || (p&&p.email) || '';
+          await saveContact(matchId, existingEmail, uid);
+          await updateDoc(doc(db,'access_control','approved'), { uids: arrayUnion(uid) });
+          await deleteDoc(doc(db,'signup_requests', uid));
+          showToast(`Linked to ${match.name}`);
+          logAudit('member.link_existing', { name: match.name, email: (p&&p.email)||'' });
+        }catch(e){ console.error('Could not link account', e); showToast('Could not link — try refreshing'); }
+        await renderUnassignedList();
+        renderTeamsList();
+        renderTeamTab();
+      });
     });
   });
   wrap.querySelectorAll('.btn-reject-pending').forEach(btn=>{

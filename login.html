@@ -160,12 +160,19 @@
     try{
       if(mode === 'signup'){
         const name = nameInput.value.trim();
+        if(!name){
+          errorBox.textContent = 'Please enter your name.';
+          errorBox.classList.add('show');
+          nameInput.focus();
+          submitBtn.disabled = false;
+          return;
+        }
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        if(name) await updateProfile(cred.user, { displayName: name });
+        await updateProfile(cred.user, { displayName: name });
         // Record the signup request up front — index.html's access check will also do this
         // as a fallback, but doing it here means the admin sees the right name immediately.
         try{
-          await setDoc(doc(db, 'signup_requests', cred.user.uid), { name: name || email, email, createdAt: Date.now() });
+          await setDoc(doc(db, 'signup_requests', cred.user.uid), { name, email, createdAt: Date.now() });
         }catch(err){ /* rules may reject this for a bootstrap-admin edge case; index.html handles it either way */ }
       } else {
         await signInWithEmailAndPassword(auth, email, password);
