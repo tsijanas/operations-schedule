@@ -329,6 +329,7 @@
   }
   .field-error{ display:none; color:var(--brick-text); font-size:11px; font-weight:600; margin-top:5px; }
   .field-error.show{ display:block; }
+  .link-inline{ background:none; border:none; padding:0; color:var(--brick-text); font-size:11px; font-weight:700; text-decoration:underline; cursor:pointer; }
   input.field-invalid{ border-color:var(--brick) !important; box-shadow:0 0 0 1px var(--brick); }
   .admin-badge{
     font-size:9.5px; font-weight:700; color:#fff; background:var(--brick-text); border-radius:6px;
@@ -1735,6 +1736,7 @@ function renderTeamTab(){
           <button class="btn-remove-x btn-del-member" title="Remove">×</button>
         </div>
       </div>
+      <div class="field-error name-dupe-error" style="margin:-4px 0 10px 34px;"></div>
       <div class="member-card-body">
         <div class="member-card-grid">
           <div class="field"><label>Level</label><div class="m-level-cell">${LEVELS.map(l=>`<label class="chip-check"><input type="checkbox" class="m-level-check" value="${l}" ${(m.levels||[]).includes(l)?'checked':''}> ${l}</label>`).join('')}</div></div>
@@ -1783,6 +1785,103 @@ function renderTeamTab(){
     card.querySelectorAll('.checkbox[data-task]').forEach(cb=>{ eligibility[cb.dataset.task] = cb.classList.contains('checked'); });
     return { id: card.dataset.mid, name, levels, isAdmin, email, teamId, eligibility };
   }
+// ---- Merging a duplicate person ----
+// Comes up when someone was added manually and later signed up separately (or their account
+// was already approved before the auto-link check existed/ran) — two member records for the
+// same real person. This combines them into one: unions their task eligibility and holiday
+// history, keeps whichever record has an actual linked login as the survivor, rewrites every
+// historical schedule so past assignments point at the surviving id instead of the removed
+// one, and revokes the removed record's login access if it had a separate one.
+async function mergeMembers(keepId, absorbId){
+  const keep = state.members.find(m=>m.id===keepId);
+  const absorb = state.members.find(m=>m.id===absorbId);
+  if(!keep || !absorb) return false;
+
+  keep.eligibility = keep.eligibility || {};
+  Object.keys(absorb.eligibility||{}).forEach(tid=>{ if(absorb.eligibility[tid]) keep.eligibility[tid] = true; });
+
+  const keepDates = new Set(state.holidays[keepId]||[]);
+  (state.holidays[absorbId]||[]).forEach(d=>keepDates.add(d));
+  state.holidays[keepId] = [...keepDates];
+  state.holidayReasons[keepId] = { ...(state.holidayReasons[absorbId]||{}), ...(state.holidayReasons[keepId]||{}) };
+  delete state.holidays[absorbId];
+  delete state.holidayReasons[absorbId];
+
+  const keepContact = memberContacts[keepId] || {email:'', authUid:null};
+  const absorbContact = memberContacts[absorbId] || {email:'', authUid:null};
+  const finalAuthUid = keepContact.authUid || absorbContact.authUid || null;
+  const finalEmail = keepContact.email || absorbContact.email || '';
+  const orphanedUid = (absorbContact.authUid && absorbContact.authUid !== finalAuthUid) ? absorbContact.authUid : null;
+  const absorbWasAdmin = !!absorb.isAdmin;
+
+  state.members = state.members.filter(m=>m.id!==absorbId);
+  await persistMembers();
+  await persistHolidays();
+  await saveContact(keepId, finalEmail, finalAuthUid);
+  await deleteContact(absorbId);
+  if(orphanedUid) await revokeMemberAccess(orphanedUid, absorbWasAdmin);
+
+  // Rewrite historical schedules: wherever the removed id was assigned, point it at the
+  // surviving id instead, across every team/week this app has ever saved.
+  try{
+    const list = await window.storage.list('schedule_', true);
+    if(list && list.keys){
+      for(const k of list.keys){
+        const res = await window.storage.get(k, true);
+        if(!res) continue;
+        let sched;
+        try{ sched = JSON.parse(res.value); }catch(e){ continue; }
+        let changed = false;
+        Object.keys(sched||{}).forEach(dateISO=>{
+          const day = sched[dateISO] || {};
+          Object.keys(day).forEach(taskId=>{
+            const arr = day[taskId];
+            if(Array.isArray(arr) && arr.includes(absorbId)){
+              day[taskId] = [...new Set(arr.map(id=> id===absorbId ? keepId : id))];
+              changed = true;
+            }
+          });
+        });
+        if(changed) await safeSet(k, sched, true);
+      }
+    }
+  }catch(e){ console.error('Could not update historical schedules during merge', e); }
+
+  balanceCache = null;
+  logAudit('member.merge', { kept: keep.name, mergedAwayName: absorb.name });
+  return true;
+}
+  function checkNameDupe(card){
+    const input = card.querySelector('.m-name');
+    const errorEl = card.querySelector('.name-dupe-error');
+    const name = input.value.trim().toLowerCase();
+    const mid = card.dataset.mid;
+    const dupe = name && state.members.find(m=> m.id!==mid && (m.name||'').trim().toLowerCase()===name);
+    if(dupe){
+      const otherId = dupe.id;
+      errorEl.innerHTML = `Someone on this team is already named "${escHtml(dupe.name)}" `
+        + `<button type="button" class="link-inline btn-merge-name-dupe" data-other="${otherId}">Merge into one person</button>`;
+      errorEl.classList.add('show');
+      const mergeBtn = errorEl.querySelector('.btn-merge-name-dupe');
+      if(mergeBtn) mergeBtn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        askConfirm(`Merge "${input.value.trim()}" and "${dupe.name}" into one person? Their eligible tasks and holiday history combine, whichever one has a linked login stays the way to sign in, and past schedules are updated to match. This can't be undone.`, 'Merge', async ()=>{
+          const thisContact = memberContacts[mid];
+          const otherContact = memberContacts[otherId];
+          const keepId = (otherContact && otherContact.authUid && !(thisContact && thisContact.authUid)) ? otherId : mid;
+          const absorbId = keepId === mid ? otherId : mid;
+          const ok = await mergeMembers(keepId, absorbId);
+          if(ok) showToast('Merged into one person');
+          renderTeamTab();
+          renderTeamsList();
+        });
+      });
+      return true;
+    }
+    errorEl.innerHTML = '';
+    errorEl.classList.remove('show');
+    return false;
+  }
   function checkEmailDupe(card){
     const input = card.querySelector('.m-email');
     const errorEl = card.querySelector('.email-dupe-error');
@@ -1790,12 +1889,31 @@ function renderTeamTab(){
     const mid = card.dataset.mid;
     const dupe = email && Object.entries(memberContacts).find(([id,c])=> id!==mid && (c.email||'').toLowerCase()===email);
     if(dupe){
-      const other = state.members.find(m=>m.id===dupe[0]);
-      errorEl.textContent = `${other?other.name:'Someone else'} already uses this email`;
+      const otherId = dupe[0];
+      const other = state.members.find(m=>m.id===otherId);
+      errorEl.innerHTML = `${escHtml(other?other.name:'Someone else')} already uses this email `
+        + `<button type="button" class="link-inline btn-merge-dupe" data-other="${otherId}">Merge into one person</button>`;
       errorEl.classList.add('show');
       input.classList.add('field-invalid');
+      const mergeBtn = errorEl.querySelector('.btn-merge-dupe');
+      if(mergeBtn) mergeBtn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const thisName = card.querySelector('.m-name').value.trim() || 'this person';
+        const otherName = other ? other.name : 'the other record';
+        askConfirm(`Merge "${thisName}" and "${otherName}" into one person? Their eligible tasks and holiday history combine, whichever one has a linked login stays the way to sign in, and past schedules are updated to match. This can't be undone.`, 'Merge', async ()=>{
+          const thisContact = memberContacts[mid];
+          const otherContact = memberContacts[otherId];
+          const keepId = (otherContact && otherContact.authUid && !(thisContact && thisContact.authUid)) ? otherId : mid;
+          const absorbId = keepId === mid ? otherId : mid;
+          const ok = await mergeMembers(keepId, absorbId);
+          if(ok) showToast('Merged into one person');
+          renderTeamTab();
+          renderTeamsList();
+        });
+      });
       return true;
     }
+    errorEl.innerHTML = '';
     errorEl.classList.remove('show');
     input.classList.remove('field-invalid');
     return false;
@@ -1803,6 +1921,10 @@ function renderTeamTab(){
   wrap.querySelectorAll('.m-email').forEach(input=>{
     checkEmailDupe(input.closest('.member-card')); // catch anything already conflicting on load
     input.addEventListener('input', ()=> checkEmailDupe(input.closest('.member-card')));
+  });
+  wrap.querySelectorAll('.m-name').forEach(input=>{
+    checkNameDupe(input.closest('.member-card'));
+    input.addEventListener('input', ()=> checkNameDupe(input.closest('.member-card')));
   });
   wrap.querySelectorAll('.btn-save-member').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
