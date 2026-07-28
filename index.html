@@ -352,6 +352,15 @@
   }
   .admin-toggle{ display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:var(--brick-text); cursor:pointer; }
   .admin-toggle input{ width:15px; height:15px; accent-color:var(--brick-text); }
+  .select-all-label{ display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; }
+  .select-all-label input{ width:15px; height:15px; }
+  .btn-remove-x-wide{
+    padding:7px 14px; border-radius:20px; border:1px solid var(--brick); background:var(--brick-soft);
+    color:var(--brick-text); font-weight:700; font-size:12.5px; cursor:pointer; transition:background 0.12s ease;
+  }
+  .btn-remove-x-wide:hover:not(:disabled){ background:var(--brick); color:#fff; }
+  .btn-remove-x-wide:disabled{ opacity:0.4; cursor:default; }
+  .card-select-check{ width:16px; height:16px; flex-shrink:0; accent-color:var(--ink); }
   .people-group-header{
     font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
     color:var(--ink-soft); margin:18px 2px 8px 2px; padding-top:4px;
@@ -520,7 +529,9 @@
           <button class="btn secondary small" id="btn-add-member">+ Add person</button>
           <button class="btn secondary small" id="btn-bulk-add-member">+ Add multiple</button>
           <div class="spacer"></div>
-          <span class="muted" style="font-size:12px;">Each person has their own Save button below</span>
+          <label class="select-all-label"><input type="checkbox" id="select-all-members"> Select all</label>
+          <button class="btn-remove-x-wide" id="btn-delete-selected-members" disabled>Delete selected (0)</button>
+          <button class="btn small" id="btn-save-all-members">Save changes</button>
         </div>
         <div id="team-table-wrap"></div>
       </div>
@@ -541,7 +552,9 @@
           <button class="btn secondary small" id="btn-add-task">+ Add task</button>
           <button class="btn secondary small" id="btn-bulk-add-task">+ Add multiple</button>
           <div class="spacer"></div>
-          <span class="muted" style="font-size:12px;">Each task has its own Save button below</span>
+          <label class="select-all-label"><input type="checkbox" id="select-all-tasks"> Select all</label>
+          <button class="btn-remove-x-wide" id="btn-delete-selected-tasks" disabled>Delete selected (0)</button>
+          <button class="btn small" id="btn-save-all-tasks">Save changes</button>
         </div>
         <div id="tasks-list"></div>
       </div>
@@ -1716,11 +1729,11 @@ function renderTeamTab(){
     const adminBadge = m.isAdmin ? `<span class="admin-badge" title="Has Admin access to this tool">Admin</span>` : '';
     html += `<div class="member-card" data-mid="${m.id}">
       <div class="member-card-head">
+        <input type="checkbox" class="card-select-check" data-mid="${m.id}">
         <button class="card-expand-toggle" title="Expand">${chevronSvg}</button>
         <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="Name">
         <div class="member-card-summary">${adminBadge}${levelTags}<span class="muted" style="font-size:11.5px; white-space:nowrap;">${escHtml(teamName)}</span></div>
         <div class="row-actions">
-          <button class="btn small btn-save-member">Save</button>
           <button class="btn-remove-x btn-del-member" title="Remove">×</button>
         </div>
       </div>
@@ -1933,19 +1946,20 @@ async function mergeMembers(keepId, absorbId){
     if(emailInput) emailInput.addEventListener('input', ()=> refreshDupeState(card));
     if(nameInput) nameInput.addEventListener('input', ()=> refreshDupeState(card));
   });
-  wrap.querySelectorAll('.btn-save-member').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const card = btn.closest('.member-card');
-      if(checkEmailDupe(card)){ showToast('Fix the email conflict before saving'); return; }
-      const { email, ...updated } = readRow(card);
-      const movedTeams = updated.teamId !== currentTeamId;
-      state.members = state.members.map(m=> m.id===updated.id ? { ...m, ...updated } : m);
-      const ok = await persistMembers();
-      await saveContact(updated.id, email, (memberContacts[updated.id]&&memberContacts[updated.id].authUid) || null);
-      if(ok){ showToast('Saved'); logAudit('member.save', { name: updated.name, teamId: updated.teamId, levels: updated.levels }); }
-      if(movedTeams) renderTeamTab(); else renderTeamsList();
-    });
+  function updateDeleteSelectedState(){
+    const checked = wrap.querySelectorAll('.card-select-check:checked').length;
+    const delBtn = document.getElementById('btn-delete-selected-members');
+    delBtn.textContent = `Delete selected (${checked})`;
+    delBtn.disabled = checked===0;
+    const selectAll = document.getElementById('select-all-members');
+    const total = wrap.querySelectorAll('.card-select-check').length;
+    selectAll.checked = total>0 && checked===total;
+    selectAll.indeterminate = checked>0 && checked<total;
+  }
+  wrap.querySelectorAll('.card-select-check').forEach(cb=>{
+    cb.addEventListener('change', updateDeleteSelectedState);
   });
+  updateDeleteSelectedState();
 // ---- Revoking access on removal ----
 // Deleting a member's row used to leave three things behind: their holiday history (orphaned,
 // nobody's), and their uid still sitting in access_control/approved (and managers, if they had
@@ -2005,6 +2019,88 @@ async function restoreMemberAccess(uid, wasManager, memberId){
       });
     });
   });
+
+  const saveAllBtn = document.getElementById('btn-save-all-members');
+  if(saveAllBtn && !saveAllBtn.dataset.wired){
+    saveAllBtn.dataset.wired = '1';
+    saveAllBtn.addEventListener('click', async ()=>{
+      const cards = Array.from(wrap.querySelectorAll('.member-card'));
+      if(cards.length===0) return;
+      let hasError = false;
+      cards.forEach(card=>{ if(checkEmailDupe(card)) hasError = true; });
+      if(hasError){ showToast('Fix the email conflicts (see red boxes) before saving'); return; }
+      const contactUpdates = [];
+      cards.forEach(card=>{
+        const { email, ...updated } = readRow(card);
+        state.members = state.members.map(m=> m.id===updated.id ? { ...m, ...updated } : m);
+        contactUpdates.push({ id: updated.id, email });
+      });
+      const ok = await persistMembers();
+      for(const cu of contactUpdates){
+        await saveContact(cu.id, cu.email, (memberContacts[cu.id]&&memberContacts[cu.id].authUid) || null);
+      }
+      if(ok){ showToast(`Saved ${cards.length} ${cards.length===1?'person':'people'}`); logAudit('member.save_all', { count: cards.length, teamId: currentTeamId }); }
+      renderTeamTab();
+      renderTeamsList();
+    });
+  }
+
+  const selectAllBtn = document.getElementById('select-all-members');
+  if(selectAllBtn && !selectAllBtn.dataset.wired){
+    selectAllBtn.dataset.wired = '1';
+    selectAllBtn.addEventListener('change', ()=>{
+      wrap.querySelectorAll('.card-select-check').forEach(cb=> cb.checked = selectAllBtn.checked);
+      updateDeleteSelectedState();
+    });
+  }
+
+  const deleteSelectedBtn = document.getElementById('btn-delete-selected-members');
+  if(deleteSelectedBtn && !deleteSelectedBtn.dataset.wired){
+    deleteSelectedBtn.dataset.wired = '1';
+    deleteSelectedBtn.addEventListener('click', ()=>{
+      const ids = Array.from(wrap.querySelectorAll('.card-select-check:checked')).map(cb=>cb.dataset.mid);
+      if(ids.length===0) return;
+      const names = ids.map(id=> (state.members.find(m=>m.id===id)||{}).name).filter(Boolean);
+      askConfirm(`Remove ${ids.length} ${ids.length===1?'person':'people'} (${names.join(', ')})? This also drops their holiday history and revokes their access to the app.`, 'Remove', async ()=>{
+        const snapshot = JSON.parse(JSON.stringify(state.members));
+        const removed = ids.map(id=>{
+          const member = state.members.find(m=>m.id===id);
+          const contact = memberContacts[id] || { email:'', authUid:null };
+          const holidaySnapshot = { dates:(state.holidays[id]||[]).slice(), reasons:{...(state.holidayReasons[id]||{})} };
+          return { id, member, contact, wasManager: !!(member&&member.isAdmin), holidaySnapshot };
+        });
+        state.members = state.members.filter(m=>!ids.includes(m.id));
+        ids.forEach(id=>{ delete state.holidays[id]; delete state.holidayReasons[id]; });
+        renderTeamTab();
+        await persistMembers();
+        await persistHolidays();
+        for(const r of removed){
+          await deleteContact(r.id);
+          await revokeMemberAccess(r.contact.authUid, r.wasManager);
+        }
+        logAudit('member.bulk_remove', { count: ids.length, names: names.join(', ') });
+        pushUndo(async ()=>{
+          state.members = snapshot;
+          removed.forEach(r=>{
+            if(r.holidaySnapshot.dates.length || Object.keys(r.holidaySnapshot.reasons).length){
+              state.holidays[r.id] = r.holidaySnapshot.dates;
+              state.holidayReasons[r.id] = r.holidaySnapshot.reasons;
+            }
+          });
+          await persistMembers();
+          await persistHolidays();
+          for(const r of removed){
+            await saveContact(r.id, r.contact.email, r.contact.authUid);
+            await restoreMemberAccess(r.contact.authUid, r.wasManager, r.id);
+          }
+          renderTeamTab(); renderTeamsList();
+          showToast('Restored');
+        });
+        showToast(`Removed ${ids.length} ${ids.length===1?'person':'people'}`, undoLast);
+        renderTeamsList();
+      });
+    });
+  }
 }
 // ---- Bulk import (paste from a spreadsheet) ----
 // Shared by "+ Add multiple" on both People and Tasks — same modal, same parsing, different
@@ -2095,8 +2191,8 @@ document.getElementById('btn-add-member').addEventListener('click', ()=>{
   const card = document.querySelector(`.member-card[data-mid="${id}"]`);
   if(card){ card.classList.add('expanded'); card.querySelector('.m-name').focus(); card.querySelector('.m-name').select(); }
 });
-// Global "save everything" button was removed — each member card now saves itself (see
-// renderTeamTab's .btn-save-member handler above).
+// Saving is consolidated to one "Save changes" button at the top of the People card now
+// (see renderTeamTab's btn-save-all-members handler) — no per-row save buttons anymore.
 function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 
@@ -2403,12 +2499,12 @@ function renderTasksTab(){
     const sameWeekBadge = t.sameAllWeek ? `<span class="task-lvl-tag" style="background:var(--gold-soft);">Same person all week</span>` : '';
     html += `<div class="task-card" data-ti="${ti}">
       <div class="task-card-head">
+        <input type="checkbox" class="card-select-check" data-ti="${ti}">
         <button class="card-expand-toggle" title="Expand">${chevronSvg}</button>
         <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
         <input type="text" class="task-name" value="${escAttr(t.name)}" placeholder="Task name">
         <div class="task-card-summary">${levelSummary}${sameWeekBadge}</div>
         <div class="row-actions">
-          <button class="btn small btn-save-task">Save</button>
           <button class="btn-remove-x btn-del-task" title="Remove">×</button>
         </div>
       </div>
@@ -2454,18 +2550,20 @@ function renderTasksTab(){
     const notes = card.querySelector('.task-notes').value;
     return { ti, task: { ...state.tasks[ti], name, levels, excludes, sameAllWeek, notes } };
   }
-  wrap.querySelectorAll('.btn-save-task').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const card = btn.closest('.task-card');
-      const { ti, task } = readTaskCard(card);
-      const renamed = task.name !== state.tasks[ti].name;
-      state.tasks[ti] = task;
-      const ok = await safeSet('tasks_'+currentTeamId, state.tasks);
-      if(ok){ showToast('Saved'); logAudit('task.save', { name: task.name, teamId: currentTeamId }); }
-      renderReqTab();
-      if(renamed){ renderTeamTab(); renderTasksTab(); } // task name shows elsewhere (eligibility chips, exclude lists)
-    });
+  function updateDeleteSelectedTasksState(){
+    const checked = wrap.querySelectorAll('.card-select-check:checked').length;
+    const delBtn = document.getElementById('btn-delete-selected-tasks');
+    delBtn.textContent = `Delete selected (${checked})`;
+    delBtn.disabled = checked===0;
+    const selectAll = document.getElementById('select-all-tasks');
+    const total = wrap.querySelectorAll('.card-select-check').length;
+    selectAll.checked = total>0 && checked===total;
+    selectAll.indeterminate = checked>0 && checked<total;
+  }
+  wrap.querySelectorAll('.card-select-check').forEach(cb=>{
+    cb.addEventListener('change', updateDeleteSelectedTasksState);
   });
+  updateDeleteSelectedTasksState();
   wrap.querySelectorAll('.btn-del-task').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const div = btn.closest('[data-ti]');
@@ -2493,6 +2591,63 @@ function renderTasksTab(){
     });
   });
   attachTaskDragHandlers(wrap);
+
+  const saveAllTasksBtn = document.getElementById('btn-save-all-tasks');
+  if(saveAllTasksBtn && !saveAllTasksBtn.dataset.wired){
+    saveAllTasksBtn.dataset.wired = '1';
+    saveAllTasksBtn.addEventListener('click', async ()=>{
+      const cards = Array.from(wrap.querySelectorAll('.task-card'));
+      if(cards.length===0) return;
+      let renamedAny = false;
+      cards.forEach(card=>{
+        const { ti, task } = readTaskCard(card);
+        if(task.name !== state.tasks[ti].name) renamedAny = true;
+        state.tasks[ti] = task;
+      });
+      const ok = await safeSet('tasks_'+currentTeamId, state.tasks);
+      if(ok){ showToast(`Saved ${cards.length} ${cards.length===1?'task':'tasks'}`); logAudit('task.save_all', { count: cards.length, teamId: currentTeamId }); }
+      renderReqTab();
+      if(renamedAny){ renderTeamTab(); renderTasksTab(); } else { renderTasksTab(); }
+    });
+  }
+
+  const selectAllTasksBtn = document.getElementById('select-all-tasks');
+  if(selectAllTasksBtn && !selectAllTasksBtn.dataset.wired){
+    selectAllTasksBtn.dataset.wired = '1';
+    selectAllTasksBtn.addEventListener('change', ()=>{
+      wrap.querySelectorAll('.card-select-check').forEach(cb=> cb.checked = selectAllTasksBtn.checked);
+      updateDeleteSelectedTasksState();
+    });
+  }
+
+  const deleteSelectedTasksBtn = document.getElementById('btn-delete-selected-tasks');
+  if(deleteSelectedTasksBtn && !deleteSelectedTasksBtn.dataset.wired){
+    deleteSelectedTasksBtn.dataset.wired = '1';
+    deleteSelectedTasksBtn.addEventListener('click', ()=>{
+      const checkedIndexes = Array.from(wrap.querySelectorAll('.card-select-check:checked')).map(cb=>+cb.dataset.ti);
+      if(checkedIndexes.length===0) return;
+      const ids = checkedIndexes.map(ti=> state.tasks[ti] && state.tasks[ti].id).filter(Boolean);
+      const names = checkedIndexes.map(ti=> state.tasks[ti] && state.tasks[ti].name).filter(Boolean);
+      askConfirm(`Remove ${ids.length} ${ids.length===1?'task':'tasks'} (${names.join(', ')})? This drops their weekly needs and everyone's eligibility for them.`, 'Remove', ()=>{
+        const snapshot = ids.map(id=> JSON.parse(JSON.stringify(state.tasks.find(t=>t.id===id))));
+        state.tasks = state.tasks.filter(t=>!ids.includes(t.id));
+        renderTasksTab();
+        snapshot.forEach(t=>{ removeTaskColumnFromTeamTable(t.id); removeTaskRowFromReqTable(t.id); });
+        safeSet('tasks_'+currentTeamId, state.tasks);
+        logAudit('task.bulk_remove', { count: ids.length, names: names.join(', ') });
+        pushUndo(()=>{
+          snapshot.forEach(t=> state.tasks.push(t));
+          renderTasksTab();
+          snapshot.forEach(t=>{ addTaskColumnToTeamTable(t); addTaskRowToReqTable(t); });
+          reorderTeamTableColumns();
+          reorderReqTableRows();
+          safeSet('tasks_'+currentTeamId, state.tasks);
+          showToast('Restored');
+        });
+        showToast(`Removed ${ids.length} ${ids.length===1?'task':'tasks'}`, undoLast);
+      });
+    });
+  }
 }
 
 // ---- Drag-and-drop reordering ----
@@ -2620,8 +2775,8 @@ document.getElementById('btn-add-task').addEventListener('click', ()=>{
   addTaskColumnToTeamTable(task);
   addTaskRowToReqTable(task);
 });
-// Global "save everything" button was removed — each task card now saves itself (see
-// renderTasksTab's .btn-save-task handler above).
+// Saving is consolidated to one "Save changes" button at the top of the Task rules card now
+// (see renderTasksTab's btn-save-all-tasks handler) — no per-card save buttons anymore.
 
 // ================= REQUIREMENTS TAB =================
 function renderReqTab(){
