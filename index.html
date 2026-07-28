@@ -312,15 +312,18 @@
   .member-card, .task-card{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; background:var(--paper); }
   .member-card-head, .task-card-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .member-card-head .m-name, .task-card-head .task-name{ flex:1; font-weight:700; font-size:14.5px; min-width:0; }
-  .member-card-body{ display:none; margin-top:14px; }
-  .member-card.expanded .member-card-body{ display:block; }
+  .member-card-body, .task-card-body{ display:none; margin-top:14px; }
+  .member-card.expanded .member-card-body, .task-card.expanded .task-card-body{ display:block; }
   .card-expand-toggle{
-    background:none; border:none; cursor:pointer; font-size:13px; color:var(--ink-soft);
-    padding:2px 5px; flex-shrink:0; transition:transform 0.15s ease; line-height:1;
+    background:none; border:none; cursor:pointer; color:var(--ink-soft);
+    padding:5px; flex-shrink:0; transition:transform 0.15s ease, background 0.12s ease, color 0.12s ease;
+    line-height:1; display:flex; align-items:center; justify-content:center; border-radius:7px;
   }
-  .member-card.expanded .card-expand-toggle{ transform:rotate(90deg); }
-  .member-card-summary{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
-  .member-card.expanded .member-card-summary{ display:none; }
+  .card-expand-toggle svg{ width:19px; height:19px; display:block; }
+  .card-expand-toggle:hover{ background:rgba(0,70,84,0.08); color:var(--ink); }
+  .member-card.expanded .card-expand-toggle, .task-card.expanded .card-expand-toggle{ transform:rotate(90deg); }
+  .member-card-summary, .task-card-summary{ display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap; }
+  .member-card.expanded .member-card-summary, .task-card.expanded .task-card-summary{ display:none; }
   .member-card-grid, .task-card-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:14px; margin-bottom:14px; }
   .field label{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin-bottom:5px; }
   .m-level-cell{ display:flex; flex-wrap:wrap; gap:8px 12px; padding-top:4px; }
@@ -1592,6 +1595,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
 });
 
 const checkSvg = '<svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const chevronSvg = '<svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 // ================= FANCY DROPDOWNS =================
 // Native <select> popups can't be restyled with CSS in any browser — the open list is drawn
@@ -1736,7 +1740,7 @@ function renderTeamTab(){
     const adminBadge = m.isAdmin ? `<span class="admin-badge" title="Has Admin access to this tool">Admin</span>` : '';
     html += `<div class="member-card" data-mid="${m.id}">
       <div class="member-card-head">
-        <button class="card-expand-toggle" title="Expand">▸</button>
+        <button class="card-expand-toggle" title="Expand">${chevronSvg}</button>
         <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="Name">
         <div class="member-card-summary">${adminBadge}${levelTags}<span class="muted" style="font-size:11.5px; white-space:nowrap;">${escHtml(teamName)}</span></div>
         <div class="row-actions">
@@ -2316,15 +2320,20 @@ function renderTasksTab(){
   const wrap = document.getElementById('tasks-list');
   let html='';
   state.tasks.forEach((t,ti)=>{
+    const levelSummary = (t.levels&&t.levels.length) ? t.levels.map(l=>`<span class="task-lvl-tag">${escHtml(l)}</span>`).join('') : `<span class="muted" style="font-size:11px;">Open to all levels</span>`;
+    const sameWeekBadge = t.sameAllWeek ? `<span class="task-lvl-tag" style="background:var(--gold-soft);">Same person all week</span>` : '';
     html += `<div class="task-card" data-ti="${ti}">
       <div class="task-card-head">
+        <button class="card-expand-toggle" title="Expand">${chevronSvg}</button>
         <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
         <input type="text" class="task-name" value="${escAttr(t.name)}" placeholder="Task name">
+        <div class="task-card-summary">${levelSummary}${sameWeekBadge}</div>
         <div class="row-actions">
           <button class="btn small btn-save-task">Save</button>
           <button class="btn-remove-x btn-del-task" title="Remove">×</button>
         </div>
       </div>
+      <div class="task-card-body">
       <div class="task-card-grid">
         <div class="field">
           <label>Restricted to</label>
@@ -2348,10 +2357,14 @@ function renderTasksTab(){
         <label>Notes / conditions</label>
         <input type="text" class="task-notes" value="${escAttr(t.notes||'')}" placeholder="Optional">
       </div>
+      </div>
     </div>`;
   });
   wrap.innerHTML = html;
   enhanceSelectsIn(wrap);
+  wrap.querySelectorAll('.card-expand-toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=> btn.closest('.task-card').classList.toggle('expanded'));
+  });
 
   function readTaskCard(card){
     const ti = +card.dataset.ti;
