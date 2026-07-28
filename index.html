@@ -89,7 +89,6 @@
   .viewer-identity-name{ font-family:'Fraunces',serif; font-weight:600; font-size:17px; color:var(--sidebar-ink); margin-bottom:6px; }
   .link-on-dark{ background:none; border:none; color:var(--sidebar-ink); opacity:0.65; font-size:11.5px; text-decoration:underline; padding:0; cursor:pointer; }
   .link-on-dark:hover{ opacity:1; }
-  .mode-switch{ padding:12px 12px 4px 12px; }
 
   .identity-modal{ display:none; position:fixed; inset:0; background:rgba(0,70,84,0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index:100; align-items:center; justify-content:center; padding:20px; }
   /* Opaque, present from first paint (no JS needed) — covers the whole app until the access
@@ -101,8 +100,6 @@
   .identity-modal.open{ display:flex; }
   .identity-card{ background:var(--paper); border-radius:16px; padding:28px 30px; width:340px; max-width:100%; box-shadow:var(--shadow); }
   .identity-card h2{ margin:0; font-size:21px; font-family:'Fraunces',serif; }
-  .link-plain{ background:none; border:none; color:var(--ink-soft); font-size:12px; text-decoration:underline; padding:0; cursor:pointer; display:block; margin-top:16px; }
-  .link-plain:hover{ color:var(--ink); }
 
   .bar.me{ box-shadow:0 0 0 2px var(--gold); }
   .you-tag{ background:var(--gold); color:var(--ink); font-size:9px; font-weight:700; padding:1px 5px; border-radius:6px; margin-left:4px; }
@@ -148,10 +145,6 @@
   tr:last-child td{ border-bottom:none; }
   tr:hover td{ background:rgba(192,147,42,0.05); }
   .lvl-pill{ display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; font-family:'IBM Plex Mono',monospace; }
-  .lvl-IC1{ background:var(--sage-soft); color:var(--ink); }
-  .lvl-IC2{ background:var(--gold-soft); color:var(--ink); }
-  .lvl-IC3{ background:var(--brick-soft); color:var(--ink); }
-  .lvl-Manager{ background:var(--ink); color:var(--sidebar-ink); }
 
   .req-table th:not(:first-child), .req-table td:not(:first-child){ text-align:center; }
   .req-table .req-total-row td{ border-top:2px solid var(--line); background:rgba(192,147,42,0.06); }
@@ -160,17 +153,9 @@
   .req-table .diff-ok{ color:#2f6b3a; }
   .req-table .diff-short{ color:var(--brick-text); }
 
-  .m-level-cell{ display:flex; flex-direction:column; gap:2px; white-space:nowrap; }
   .chip-check{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; border:1.5px solid var(--line); font-size:12px; font-weight:600; color:var(--ink-soft); background:#fff; cursor:pointer; }
   .chip-check:has(:checked){ background:var(--sage-soft); border-color:var(--sage); color:var(--ink); }
   .chip-check input{ accent-color:var(--ink); width:13px; height:13px; }
-  .team-table td:nth-child(2){ width:84px; }
-  .team-table th.task-col{
-    writing-mode: vertical-rl; transform:rotate(180deg);
-    height:132px; width:30px; max-width:30px; white-space:nowrap;
-    font-size:10.5px; padding:6px 4px 10px 4px; vertical-align:bottom; text-align:left;
-  }
-  .team-table td.task-col{ width:30px; max-width:30px; }
 
   input[type=text], input[type=email], input[type=number], input[type=date], select, textarea, .fsel-trigger{
     font-family:inherit; font-size:13px; padding:6px 9px; border:1px solid var(--line); border-radius:8px;
@@ -209,8 +194,6 @@
   .toast.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
   #toast-undo{ background:none; border:none; color:var(--gold); font-weight:700; font-size:13px; text-decoration:underline; cursor:pointer; padding:0; white-space:nowrap; }
   #toast-undo:hover{ color:var(--gold-soft); }
-
-  .squiggle{ display:inline-block; }
 
   .sched-table{ border:1px solid var(--line); border-radius:10px; overflow:hidden; table-layout:fixed; width:100%; }
   .sched-table th, .sched-table td{ text-align:center; border:1px solid var(--line); }
@@ -308,7 +291,6 @@
   .add-select .fsel-trigger > span{ overflow:visible; }
   .add-select select:hover, .add-select .fsel-trigger:hover{ border-color:var(--gold); color:var(--ink); }
 
-  .info-card{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; background:var(--paper); }
   .member-card, .task-card{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; background:var(--paper); }
   .member-card-head, .task-card-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .member-card-head .m-name, .task-card-head .task-name{ flex:1; font-weight:700; font-size:14.5px; min-width:0; }
@@ -366,6 +348,17 @@
     color:var(--ink-soft); margin:18px 2px 8px 2px; padding-top:4px;
   }
   .people-group-header:first-child{ margin-top:2px; }
+  .idea-form-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
+  .idea-item{ border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:var(--paper); }
+  .idea-item-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .idea-item-title{ font-weight:700; font-size:14px; flex:1; min-width:150px; }
+  .idea-type-badge{ font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; border-radius:6px; padding:2px 7px; }
+  .idea-type-badge.idea{ background:var(--sage-soft); color:var(--ink); }
+  .idea-type-badge.bug{ background:var(--brick-soft); color:var(--brick-text); }
+  .idea-item-desc{ font-size:12.5px; color:var(--ink-soft); line-height:1.5; margin:4px 0 10px 0; white-space:pre-wrap; }
+  .idea-item-meta{ font-size:11px; color:var(--ink-faint); margin-bottom:8px; }
+  .idea-item-controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .idea-item-controls select{ width:auto; min-width:120px; font-size:12px; padding:5px 8px; }
   .task-elig-chip:has(.checked){ background:var(--sage-soft); border-color:var(--sage); color:var(--ink); }
 
   .fsel{ position:relative; width:100%; }
@@ -500,6 +493,7 @@
 
     <div class="sidebar-panel admin-only">
       <button class="nav-item admin-only" data-tab="balance">Rotation balance</button>
+      <button class="nav-item admin-only" data-tab="ideas">Ideas &amp; Bugs</button>
       <button class="nav-item admin-only" data-tab="data">Data</button>
       <div class="sidebar-foot admin-only">Autosaves to the cloud when that's available — check the Data tab to back up or move your data manually otherwise.</div>
     </div>
@@ -714,6 +708,57 @@
           <span class="cal-legend-item"><span class="cal-legend-swatch sick"></span> Out of office</span>
         </div>
         <div class="cal" id="v-cal-grid"></div>
+      </div>
+    </div>
+
+    <!-- IDEAS & BUGS TAB -->
+    <div class="tab-panel" id="tab-ideas">
+      <div class="page-head">
+        <h1>Ideas &amp; Bugs</h1>
+        <p>Track what's needed, what's being worked on, and what's already done — anyone approved can submit; changing status and priority is a Manager/Admin action.</p>
+      </div>
+      <div class="card">
+        <h3>Submit something</h3>
+        <div class="idea-form-grid">
+          <div class="field">
+            <label>Type</label>
+            <div class="m-level-cell">
+              <label class="chip-check"><input type="radio" name="idea-type" value="idea" checked> Idea</label>
+              <label class="chip-check"><input type="radio" name="idea-type" value="bug"> Bug</label>
+            </div>
+          </div>
+          <div class="field" style="grid-column:span 2;">
+            <label>Title</label>
+            <input type="text" id="idea-title" placeholder="Short summary">
+          </div>
+        </div>
+        <div class="field" style="margin-top:12px;">
+          <label>Details</label>
+          <textarea id="idea-desc" rows="3" style="width:100%; font-family:inherit; font-size:13px; padding:9px 11px; border:1px solid var(--line); border-radius:8px; resize:vertical;" placeholder="What's the idea, or what's broken and how do you reproduce it?"></textarea>
+        </div>
+        <div class="row" style="margin-top:12px;">
+          <div class="spacer"></div>
+          <button class="btn small" id="btn-submit-idea">Submit</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>All items</h3>
+        <div class="row" style="margin-bottom:14px;">
+          <select id="idea-filter-status">
+            <option value="">All statuses</option>
+            <option value="backlog">Backlog</option>
+            <option value="in_progress">In progress</option>
+            <option value="done">Done</option>
+          </select>
+          <select id="idea-filter-type">
+            <option value="">Ideas &amp; bugs</option>
+            <option value="idea">Ideas only</option>
+            <option value="bug">Bugs only</option>
+          </select>
+          <div class="spacer"></div>
+          <button class="btn secondary small" id="btn-refresh-ideas">Refresh</button>
+        </div>
+        <div id="ideas-list"><div class="muted" style="font-size:12.5px;">Loading…</div></div>
       </div>
     </div>
 
@@ -1393,6 +1438,113 @@ async function renderAuditLog(){
   }
 }
 document.getElementById('btn-refresh-audit').addEventListener('click', renderAuditLog);
+
+// ---- Ideas & Bugs tracker ----
+// One doc per item in its own collection (ideas_log), same pattern as everything else that
+// needs individual records rather than a shared blob. Anyone approved can submit; changing
+// status/priority or deleting is Manager/Admin only, enforced in firestore.rules, not just here.
+const IDEA_STATUS_LABELS = { backlog:'Backlog', in_progress:'In progress', done:'Done' };
+const IDEA_PRIORITY_LABELS = { low:'Low priority', medium:'Medium priority', high:'High priority' };
+async function renderIdeasTab(){
+  const wrap = document.getElementById('ideas-list');
+  wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Loading…</div>`;
+  try{
+    const { db, collection, query, orderBy, getDocs } = window.rotaDb;
+    const snap = await getDocs(query(collection(db,'ideas_log'), orderBy('submittedAt','desc')));
+    let items = [];
+    snap.forEach(d=> items.push({ id:d.id, ...d.data() }));
+    const statusFilter = document.getElementById('idea-filter-status').value;
+    const typeFilter = document.getElementById('idea-filter-type').value;
+    if(statusFilter) items = items.filter(i=>i.status===statusFilter);
+    if(typeFilter) items = items.filter(i=>i.type===typeFilter);
+    if(items.length===0){ wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Nothing here yet.</div>`; return; }
+    let html = '';
+    items.forEach(item=>{
+      const when = item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : '';
+      html += `<div class="idea-item" data-id="${escAttr(item.id)}">
+        <div class="idea-item-head">
+          <span class="idea-type-badge ${item.type==='bug'?'bug':'idea'}">${item.type==='bug'?'Bug':'Idea'}</span>
+          <span class="idea-item-title">${escHtml(item.title||'Untitled')}</span>
+        </div>
+        ${item.description ? `<div class="idea-item-desc">${escHtml(item.description)}</div>` : ''}
+        <div class="idea-item-meta">Submitted by ${escHtml(item.submittedByName||'Unknown')}${when?' — '+when:''}</div>
+        <div class="idea-item-controls">
+          <select class="idea-status-pick">${Object.entries(IDEA_STATUS_LABELS).map(([v,l])=>`<option value="${v}" ${item.status===v?'selected':''}>${l}</option>`).join('')}</select>
+          <select class="idea-priority-pick">${Object.entries(IDEA_PRIORITY_LABELS).map(([v,l])=>`<option value="${v}" ${item.priority===v?'selected':''}>${l}</option>`).join('')}</select>
+          <button class="btn-remove-x btn-del-idea" title="Delete">×</button>
+        </div>
+      </div>`;
+    });
+    wrap.innerHTML = html;
+    enhanceSelectsIn(wrap);
+    wrap.querySelectorAll('.idea-status-pick').forEach(sel=>{
+      sel.addEventListener('change', async ()=>{
+        const id = sel.closest('.idea-item').dataset.id;
+        try{
+          const { db, doc, updateDoc } = window.rotaDb;
+          await updateDoc(doc(db,'ideas_log', id), { status: sel.value });
+          logAudit('idea.status_change', { id, status: sel.value });
+          showToast('Updated');
+        }catch(e){ console.error('Could not update status', e); showToast('Could not update — are you an Admin?'); renderIdeasTab(); }
+      });
+    });
+    wrap.querySelectorAll('.idea-priority-pick').forEach(sel=>{
+      sel.addEventListener('change', async ()=>{
+        const id = sel.closest('.idea-item').dataset.id;
+        try{
+          const { db, doc, updateDoc } = window.rotaDb;
+          await updateDoc(doc(db,'ideas_log', id), { priority: sel.value });
+          logAudit('idea.priority_change', { id, priority: sel.value });
+          showToast('Updated');
+        }catch(e){ console.error('Could not update priority', e); showToast('Could not update — are you an Admin?'); renderIdeasTab(); }
+      });
+    });
+    wrap.querySelectorAll('.btn-del-idea').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const item = btn.closest('.idea-item');
+        const id = item.dataset.id;
+        const title = item.querySelector('.idea-item-title').textContent;
+        askConfirm(`Delete "${title}"? This can't be undone.`, 'Delete', async ()=>{
+          try{
+            const { db, doc, deleteDoc } = window.rotaDb;
+            await deleteDoc(doc(db,'ideas_log', id));
+            logAudit('idea.delete', { title });
+            showToast('Deleted');
+          }catch(e){ console.error('Could not delete', e); showToast('Could not delete — are you an Admin?'); }
+          renderIdeasTab();
+        });
+      });
+    });
+  }catch(e){
+    console.error('Could not load ideas/bugs', e);
+    wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Couldn't load this list — try Refresh.</div>`;
+  }
+}
+document.getElementById('btn-refresh-ideas').addEventListener('click', renderIdeasTab);
+document.getElementById('idea-filter-status').addEventListener('change', renderIdeasTab);
+document.getElementById('idea-filter-type').addEventListener('change', renderIdeasTab);
+document.getElementById('btn-submit-idea').addEventListener('click', async ()=>{
+  const title = document.getElementById('idea-title').value.trim();
+  if(!title){ showToast('Give it a short title first'); return; }
+  const type = document.querySelector('input[name="idea-type"]:checked').value;
+  const description = document.getElementById('idea-desc').value.trim();
+  try{
+    const { db, collection, doc, setDoc } = window.rotaDb;
+    const id = 'idea_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    await setDoc(doc(db,'ideas_log', id), {
+      type, title, description,
+      status:'backlog', priority:'medium',
+      submittedBy: currentAuthUid||null,
+      submittedByName: (viewerIdentityId && state.members.find(m=>m.id===viewerIdentityId)?.name) || 'Unknown',
+      submittedAt: Date.now()
+    });
+    document.getElementById('idea-title').value = '';
+    document.getElementById('idea-desc').value = '';
+    showToast('Submitted — thanks!');
+    logAudit('idea.submit', { type, title });
+    renderIdeasTab();
+  }catch(e){ console.error('Could not submit', e); showToast('Could not submit — try again'); }
+});
 // ---- Contact info (email, authUid): split out of app_members into its own collection ----
 // app_members holds only what everyone needs to see a schedule: name, team, level, task
 // eligibility. Email and the technical auth-account link now live in member_contacts instead,
@@ -1582,6 +1734,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
     if(btn.dataset.tab==='balance') renderBalanceTab();
     if(btn.dataset.tab==='holidays') renderHolidaysTab();
     if(btn.dataset.tab==='data') renderAuditLog();
+    if(btn.dataset.tab==='ideas') renderIdeasTab();
   });
 });
 
@@ -3072,9 +3225,6 @@ function renderYourWeekSummary(){
   attachYourWeekClicks(wrap, '#sched-grid-wrap');
 }
 function memberName(id){ const m=state.members.find(x=>x.id===id); return m?m.name:'?'; }
-function memberLevel(id){ const m=state.members.find(x=>x.id===id); return m?(m.levels||[]):[]; }
-function memberLevelLabel(id){ return memberLevel(id).join('/') || '—'; }
-function levelPillsHtml(levelsArr){ return (levelsArr||[]).map(l=>`<span class="lvl-pill lvl-${l}">${l}</span>`).join(' '); }
 
 function drawScheduleGrid(){
   const wrap = document.getElementById('sched-grid-wrap');
@@ -3145,6 +3295,7 @@ function drawScheduleGrid(){
           <div class="bar-menu" data-mid="${mid}" style="background:color-mix(in srgb, ${pColor.bg} 45%, white); color:${pColor.fg==='#EDFFE9'?'var(--ink)':pColor.fg};">
             <button class="bar-menu-item" data-action="delete">Delete</button>
             <button class="bar-menu-item" data-action="replace">Replace with next in line</button>
+            <button class="bar-menu-item" data-action="replace-with">Replace with…</button>
           </div>
         </div>`;
       });
@@ -3174,27 +3325,7 @@ function drawScheduleGrid(){
       if(!wasOpen) menu.classList.add('open');
     });
   });
-  wrap.querySelectorAll('.bar-menu-item').forEach(btn=>{
-    btn.addEventListener('click', async (e)=>{
-      e.stopPropagation();
-      const menu = btn.closest('.bar-menu');
-      const td = btn.closest('td');
-      const taskId = td.dataset.task;
-      const mid = menu.dataset.mid;
-      const cellDates = td.dataset.dates.split(',');
-      closeAllBarMenus();
-      if(btn.dataset.action==='delete'){
-        cellDates.forEach(dISO=>{
-          currentSchedule[dISO][taskId] = (currentSchedule[dISO][taskId]||[]).filter(x=>x!==mid);
-        });
-        await saveWeek(iso(currentWeekMonday), currentSchedule);
-        balanceCache = null;
-        drawScheduleGrid();
-      } else if(btn.dataset.action==='replace'){
-        await doReplace(taskId, cellDates, mid);
-      }
-    });
-  });
+  wireBarMenus(wrap);
   wrap.querySelectorAll('select[data-add]').forEach(sel=>{
     sel.addEventListener('change', async ()=>{
       if(!sel.value) return;
@@ -3220,6 +3351,66 @@ document.addEventListener('click', (e)=>{
 });
 // Delete removes the person outright; Replace swaps them for whoever's next in the rotation
 // for that exact task (lowest worked-count among eligible, available people).
+function mainBarMenuHtml(){
+  return `<button class="bar-menu-item" data-action="delete">Delete</button>
+    <button class="bar-menu-item" data-action="replace">Replace with next in line</button>
+    <button class="bar-menu-item" data-action="replace-with">Replace with…</button>`;
+}
+// Handles all three bar-menu actions, including swapping the menu's own content to show a
+// specific-person picker (and back again) — re-called after that swap since the buttons
+// inside the menu are replaced, not just their handlers.
+function wireBarMenus(wrap){
+  wrap.querySelectorAll('.bar-menu').forEach(menu=>{
+    menu.querySelectorAll('.bar-menu-item').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const td = btn.closest('td');
+        const taskId = td.dataset.task;
+        const mid = menu.dataset.mid;
+        const cellDates = td.dataset.dates.split(',');
+        const action = btn.dataset.action;
+        if(action==='delete'){
+          closeAllBarMenus();
+          cellDates.forEach(dISO=>{
+            currentSchedule[dISO][taskId] = (currentSchedule[dISO][taskId]||[]).filter(x=>x!==mid);
+          });
+          await saveWeek(iso(currentWeekMonday), currentSchedule);
+          balanceCache = null;
+          drawScheduleGrid();
+        } else if(action==='replace'){
+          closeAllBarMenus();
+          await doReplace(taskId, cellDates, mid);
+        } else if(action==='replace-with'){
+          const assigned = ((currentSchedule[cellDates[0]]||{})[taskId]) || [];
+          const candidates = eligibleMembersForRun(taskId, cellDates, assigned.filter(id=>id!==mid));
+          menu.innerHTML = `<button class="bar-menu-item" data-action="replace-with-back">← Back</button>`
+            + (candidates.length===0
+              ? `<div class="bar-menu-empty">No one else is eligible and free for this.</div>`
+              : candidates.map(m=>`<button class="bar-menu-item" data-action="replace-with-pick" data-target="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</button>`).join(''));
+          wireBarMenus(wrap); // menu content changed — rewire just this menu's new buttons
+        } else if(action==='replace-with-back'){
+          menu.innerHTML = mainBarMenuHtml();
+          wireBarMenus(wrap);
+        } else if(action==='replace-with-pick'){
+          closeAllBarMenus();
+          await doReplaceWithSpecific(taskId, cellDates, mid, btn.dataset.target);
+        }
+      });
+    });
+  });
+}
+async function doReplaceWithSpecific(taskId, cellDates, outgoingId, incomingId){
+  const incoming = state.members.find(m=>m.id===incomingId);
+  cellDates.forEach(dISO=>{
+    currentSchedule[dISO][taskId] = (currentSchedule[dISO][taskId]||[]).filter(x=>x!==outgoingId);
+    if(!currentSchedule[dISO][taskId].includes(incomingId)) currentSchedule[dISO][taskId].push(incomingId);
+  });
+  await saveWeek(iso(currentWeekMonday), currentSchedule);
+  balanceCache = null;
+  drawScheduleGrid();
+  showToast(`Replaced with ${incoming?incoming.name:'them'}`);
+  logAudit('schedule.replace_specific', { taskId, teamId: currentTeamId, to: incoming?incoming.name:incomingId });
+}
 async function doReplace(taskId, cellDates, outgoingId){
   const excludeSet = new Set([outgoingId]);
   let replacement = cellDates.length > 1 ? await nextInLineAcrossDates(taskId, cellDates, excludeSet) : null;
@@ -3247,33 +3438,32 @@ async function doReplace(taskId, cellDates, outgoingId){
   else if(anyReplaced) showToast('Replaced where possible — no one eligible for the rest');
   else showToast('No one eligible or available — removed instead');
 }
-function eligibleOptionsFor(taskId, dISO, already){
-  const task = state.tasks.find(t=>t.id===taskId);
-  return teamMembers()
-    .filter(m=> m.eligibility[taskId] && levelAllowed(task, m.levels) && !isOnHoliday(m.id,dISO) && !already.includes(m.id))
-    .map(m=>`<option value="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</option>`);
-}
-// Same idea, but for a merged same-all-week run: only offer someone who's actually free
-// (eligible, right level, not on holiday, no conflicting task) on every date in the run —
-// picking them assigns them to the whole stretch at once, not just one day of it.
+// For a task cell's "+add" dropdown: only offer someone who's actually free (eligible, right
+// level, not on holiday, no conflicting task) on every date the cell covers. A normal single
+// day is just a one-date run, so this one function correctly covers both cases.
 function eligibleOptionsForRun(taskId, dateISOs, already){
+  return eligibleMembersForRun(taskId, dateISOs, already).map(m=>`<option value="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</option>`);
+}
+function eligibleMembersForRun(taskId, dateISOs, already){
   const task = state.tasks.find(t=>t.id===taskId);
   return teamMembers()
     .filter(m=> m.eligibility[taskId] && levelAllowed(task, m.levels) && !already.includes(m.id)
-      && dateISOs.every(d=> !isOnHoliday(m.id,d) && canAssignNow(m, task, d)))
-    .map(m=>`<option value="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</option>`);
+      && dateISOs.every(d=> !isOnHoliday(m.id,d) && canAssignNow(m, task, d)));
 }
 
 // What tasks does this person already hold on this date, according to the schedule as it
-// currently stands (before whatever edit we're about to make)?
-function existingTasksForMemberOnDate(memberId, dateISO){
-  const day = currentSchedule[dateISO] || {};
+// currently stands (before whatever edit we're about to make)? Defaults to whichever week is
+// on screen, but can act on any week's data — needed so OOO auto-replacement can work on a
+// week that isn't necessarily the one currently loaded in the Schedule tab.
+function existingTasksForMemberOnDate(memberId, dateISO, schedule){
+  const sched = schedule || currentSchedule;
+  const day = sched[dateISO] || {};
   return Object.keys(day).filter(tid => (day[tid]||[]).includes(memberId));
 }
 // Same exclusion rule as the generator: two tasks marked as excluding each other can
 // never both land on the same person the same day.
-function canAssignNow(member, task, dateISO){
-  const existing = existingTasksForMemberOnDate(member.id, dateISO);
+function canAssignNow(member, task, dateISO, schedule){
+  const existing = existingTasksForMemberOnDate(member.id, dateISO, schedule);
   if(existing.includes(task.id)) return false;
   if(task.excludes && existing.includes(task.excludes)) return false;
   const conflictsWithExisting = existing.some(tid=>{
@@ -3285,15 +3475,16 @@ function canAssignNow(member, task, dateISO){
 }
 // Who's next up for this task on this one date — lowest worked-count first among people who
 // are eligible, the right level, not on holiday, and not already committed elsewhere that day.
-async function nextInLineSingleDate(taskId, dateISO, excludeIds){
+async function nextInLineSingleDate(taskId, dateISO, excludeIds, schedule){
+  const sched = schedule || currentSchedule;
   const balance = await computeBalance();
   const task = state.tasks.find(t=>t.id===taskId);
   if(!task) return null;
-  const alreadyOnTask = ((currentSchedule[dateISO]||{})[taskId]) || [];
+  const alreadyOnTask = ((sched[dateISO]||{})[taskId]) || [];
   const candidates = teamMembers().filter(m=>
     !excludeIds.has(m.id) && !alreadyOnTask.includes(m.id) &&
     m.eligibility[taskId] && levelAllowed(task, m.levels) &&
-    !isOnHoliday(m.id, dateISO) && canAssignNow(m, task, dateISO)
+    !isOnHoliday(m.id, dateISO) && canAssignNow(m, task, dateISO, sched)
   );
   candidates.sort((a,b)=>{
     const ca = (balance[a.id]&&balance[a.id][taskId]) || 0, cb = (balance[b.id]&&balance[b.id][taskId]) || 0;
@@ -3303,15 +3494,16 @@ async function nextInLineSingleDate(taskId, dateISO, excludeIds){
 }
 // Same idea, but for a merged multi-day bar — only counts someone if they can cover every
 // date in the run, so a spanning bar always stays a single person, not a patchwork.
-async function nextInLineAcrossDates(taskId, dateISOs, excludeIds){
+async function nextInLineAcrossDates(taskId, dateISOs, excludeIds, schedule){
+  const sched = schedule || currentSchedule;
   const balance = await computeBalance();
   const task = state.tasks.find(t=>t.id===taskId);
   if(!task) return null;
   const candidates = teamMembers().filter(m=>
     !excludeIds.has(m.id) && m.eligibility[taskId] && levelAllowed(task, m.levels) &&
     dateISOs.every(dISO => {
-      const alreadyOnTask = ((currentSchedule[dISO]||{})[taskId]) || [];
-      return !alreadyOnTask.includes(m.id) && !isOnHoliday(m.id, dISO) && canAssignNow(m, task, dISO);
+      const alreadyOnTask = ((sched[dISO]||{})[taskId]) || [];
+      return !alreadyOnTask.includes(m.id) && !isOnHoliday(m.id, dISO) && canAssignNow(m, task, dISO, sched);
     })
   );
   candidates.sort((a,b)=>{
@@ -3319,6 +3511,49 @@ async function nextInLineAcrossDates(taskId, dateISOs, excludeIds){
     return ca-cb || a.name.localeCompare(b.name);
   });
   return candidates[0] || null;
+}
+
+// ---- Auto-replace when someone's marked Out of Office ----
+// Reuses exactly the same "who's next in line" logic as the manual Replace button — this just
+// triggers it automatically, for every task the person was already on, across however many
+// weeks the marked dates span (not just whichever week happens to be on screen right now).
+async function autoReplaceForOOO(memberId, dateISOs){
+  const byWeek = {};
+  dateISOs.forEach(dISO=>{
+    const wISO = iso(mondayOf(new Date(dISO+'T00:00:00')));
+    (byWeek[wISO] = byWeek[wISO] || []).push(dISO);
+  });
+  let replaced = 0, removed = 0;
+  const replacedNames = new Set();
+  for(const wISO of Object.keys(byWeek)){
+    const sched = await loadWeek(wISO);
+    let changed = false;
+    for(const dISO of byWeek[wISO]){
+      const day = sched[dISO];
+      if(!day) continue;
+      for(const taskId of Object.keys(day)){
+        if(!(day[taskId]||[]).includes(memberId)) continue;
+        const task = state.tasks.find(t=>t.id===taskId);
+        if(!task || task.sameAllWeek) continue; // same-all-week needs a manager's judgment call — see note above
+        const replacement = await nextInLineSingleDate(taskId, dISO, new Set([memberId]), sched);
+        day[taskId] = day[taskId].filter(x=>x!==memberId);
+        if(replacement){ day[taskId].push(replacement.id); replaced++; replacedNames.add(replacement.name); }
+        else removed++;
+        changed = true;
+      }
+    }
+    if(changed){
+      await saveWeek(wISO, sched);
+      if(wISO === iso(currentWeekMonday)) drawScheduleGrid(); // keep the on-screen grid in sync if it's the affected week
+    }
+  }
+  if(replaced===0 && removed===0) return; // they weren't on anything for those dates
+  balanceCache = null;
+  const bits = [];
+  if(replaced>0) bits.push(`${replaced} shift${replaced>1?'s':''} covered by ${[...replacedNames].join(', ')}`);
+  if(removed>0) bits.push(`${removed} shift${removed>1?'s':''} left open — no one eligible`);
+  showToast(`Auto-replaced: ${bits.join('; ')}`);
+  logAudit('schedule.auto_replace_ooo', { memberId, dates: dateISOs.join(','), replaced, removed });
 }
 
 // ================= BALANCE TAB =================
@@ -3491,11 +3726,13 @@ document.getElementById('btn-hol-mark').addEventListener('click', async ()=>{
     state.holidayReasons[who][dISO] = reason;
   });
   const n = selectedHolidayDates.size;
+  const markedDates = [...selectedHolidayDates];
   selectedHolidayDates.clear();
   await persistHolidays();
   drawCalendar();
   drawOffThisWeek();
   showToast(`Marked ${n} day${n>1?'s':''} ${reason==='sick'?'as out of office':'off'} for ${memberName(who)}`);
+  if(reason==='sick') await autoReplaceForOOO(who, markedDates);
 });
 document.getElementById('btn-hol-clear').addEventListener('click', ()=>{
   selectedHolidayDates.clear();
@@ -3970,6 +4207,7 @@ function drawViewerCalendar(){
       await persistHolidays();
       drawViewerCalendar();
       showToast(reason==='sick' ? 'Marked yourself as out of office' : 'Marked yourself off');
+      if(reason==='sick') await autoReplaceForOOO(viewerIdentityId, [dISO]);
     });
   });
 }
