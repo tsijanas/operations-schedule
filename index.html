@@ -518,6 +518,7 @@
         <h3>People <span class="muted" style="font-weight:400; font-size:12px;" id="people-team-label"></span></h3>
         <div class="row" style="margin-bottom:14px;">
           <button class="btn secondary small" id="btn-add-member">+ Add person</button>
+          <button class="btn secondary small" id="btn-bulk-add-member">+ Add multiple</button>
           <div class="spacer"></div>
           <span class="muted" style="font-size:12px;">Each person has their own Save button below</span>
         </div>
@@ -538,6 +539,7 @@
       <div class="card" id="tasks-card">
         <div class="row" style="margin-bottom:6px;">
           <button class="btn secondary small" id="btn-add-task">+ Add task</button>
+          <button class="btn secondary small" id="btn-bulk-add-task">+ Add multiple</button>
           <div class="spacer"></div>
           <span class="muted" style="font-size:12px;">Each task has its own Save button below</span>
         </div>
@@ -750,6 +752,22 @@
       <div class="spacer"></div>
       <button class="btn secondary small" id="btn-pending-refresh">Check again</button>
       <button class="btn small" id="btn-pending-signout">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<div class="identity-modal" id="bulk-import-modal">
+  <div class="identity-card" style="max-width:480px;">
+    <h2 id="bulk-import-title">Add multiple people</h2>
+    <p class="muted" id="bulk-import-hint" style="margin:4px 0 12px 0;">Paste names, one per line — works directly from a spreadsheet column. If you paste multiple columns (e.g. Name, Email, Level), they're picked up automatically.</p>
+    <textarea id="bulk-import-text" rows="8" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px; resize:vertical;" placeholder="Jamie Rivera
+Alex Chen	alex@company.com	IC2
+Sam Taylor"></textarea>
+    <div class="muted" id="bulk-import-preview" style="font-size:12px; margin-top:8px;">Nothing pasted yet.</div>
+    <div class="row" style="margin-top:14px;">
+      <div class="spacer"></div>
+      <button class="btn secondary small" id="bulk-import-cancel">Cancel</button>
+      <button class="btn small" id="bulk-import-confirm">Add</button>
     </div>
   </div>
 </div>
@@ -1036,31 +1054,11 @@ const DAY_SHORT = {mon:'MON',tue:'TUE',wed:'WED',thu:'THU',fri:'FRI',sat:'SAT',s
 const LEVELS = ['IC1','IC2','IC3','Manager'];
 
 const DEFAULT_TASKS = [
-  {id:'instant_screening', name:'Task 1', levels:['IC1'], excludes:'consultation', notes:'Only IC1s work this. Cannot be combined with Task 11 on the same day.'},
-  {id:'retro_transfers', name:'Task 2', levels:[], excludes:null, notes:'No extra restriction beyond individual eligibility below.'},
-  {id:'ongoing_screening', name:'Task 3', levels:[], excludes:null, notes:'No extra restriction beyond individual eligibility below.'},
-  {id:'instant_transfers', name:'Task 4', levels:[], excludes:null, notes:'No extra restriction beyond individual eligibility below.'},
-  {id:'ticketron_esc', name:'Task 5', levels:[], excludes:null, notes:'No conditions.'},
-  {id:'slack_alerts', name:'Task 6', levels:[], excludes:null, notes:'No conditions.'},
-  {id:'qa', name:'Task 7', levels:['IC3'], excludes:null, sameAllWeek:true, notes:'One person a week, rotates across all IC3s. Same person covers every day Task 7 is needed that week.'},
-  {id:'ma', name:'Task 8', levels:[], excludes:null, notes:'No conditions.'},
-  {id:'risk_assessment', name:'Task 9', levels:['IC2','IC3'], excludes:null, notes:'IC2 and IC3 only.'},
-  {id:'str_review', name:'Task 10', levels:['IC3'], excludes:null, notes:'IC3 only.'},
-  {id:'consultation', name:'Task 11', levels:['IC2'], excludes:null, notes:'IC2 only.'},
+  {id:'example_task', name:'Example task', levels:[], excludes:null, notes:'This is an example — rename it, adjust its rules, or remove it and add your own.'},
 ];
 
 const DEFAULT_REQ = {
-  instant_screening:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  retro_transfers:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  ongoing_screening:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  instant_transfers:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  ticketron_esc:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  slack_alerts:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  qa:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  ma:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  risk_assessment:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  str_review:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
-  consultation:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
+  example_task:{mon:1,tue:1,wed:1,thu:1,fri:1,sat:0,sun:0},
 };
 
 function elig(list){
@@ -1073,29 +1071,7 @@ const DEFAULT_TEAMS = [
   {id: DEFAULT_TEAM_ID, name:'Main Team', managerId:null}
 ];
 const DEFAULT_MEMBERS = [
-  {id:'m_person1', name:'Person 1', levels:['IC2'], email:'person1@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person2', name:'Person 2', levels:['IC3'], email:'person2@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person3', name:'Person 3', levels:['IC3'], email:'person3@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa','str_review'])},
-  {id:'m_person4', name:'Person 4', levels:['IC2'], email:'person4@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
-  {id:'m_person5', name:'Person 5', levels:['IC2'], email:'person5@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
-  {id:'m_person6', name:'Person 6', levels:['IC3'], email:'person6@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa','str_review'])},
-  {id:'m_person7', name:'Person 7', levels:['IC2'], email:'person7@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person8', name:'Person 8', levels:['IC2'], email:'person8@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
-  {id:'m_person9', name:'Person 9', levels:['IC3'], email:'person9@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa','str_review'])},
-  {id:'m_person10', name:'Person 10', levels:['IC2'], email:'person10@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
-  {id:'m_person11', name:'Person 11', levels:['IC2'], email:'person11@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person12', name:'Person 12', levels:['IC2'], email:'person12@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
-  {id:'m_person13', name:'Person 13', levels:['IC2'], email:'person13@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa'])},
-  {id:'m_person14', name:'Person 14', levels:['IC2'], email:'person14@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','consultation'])},
-  {id:'m_person15', name:'Person 15', levels:['IC2'], email:'person15@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma','qa'])},
-  {id:'m_person16', name:'Person 16', levels:['IC1'], email:'person16@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person17', name:'Person 17', levels:['IC1'], email:'person17@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person18', name:'Person 18', levels:['IC1'], email:'person18@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person19', name:'Person 19', levels:['IC2'], email:'person19@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma'])},
-  {id:'m_person20', name:'Person 20', levels:['IC2'], email:'person20@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig(['instant_transfers','retro_transfers','risk_assessment','ticketron_esc','slack_alerts','ma'])},
-  {id:'m_person21', name:'Person 21', levels:['IC1'], email:'person21@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person22', name:'Person 22', levels:['IC1'], email:'person22@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
-  {id:'m_person23', name:'Person 23', levels:['IC1'], email:'person23@team.com', teamId:DEFAULT_TEAM_ID, eligibility:elig([])},
+  {id:'m_example', name:'Example person', levels:['IC1'], email:'', teamId:DEFAULT_TEAM_ID, eligibility:elig(['example_task'])},
 ];
 
 // ---------- state ----------
@@ -2030,6 +2006,88 @@ async function restoreMemberAccess(uid, wasManager, memberId){
     });
   });
 }
+// ---- Bulk import (paste from a spreadsheet) ----
+// Shared by "+ Add multiple" on both People and Tasks — same modal, same parsing, different
+// creation logic depending on which one opened it.
+let bulkImportMode = null; // 'people' | 'tasks'
+function parseBulkRows(text){
+  return text.split('\n')
+    .map(line=>line.replace(/\r$/,''))
+    .filter(line=>line.trim().length>0)
+    .map(line=>{
+      const cols = line.split('\t').map(c=>c.trim());
+      return { name: cols[0]||'', email: cols[1]||'', level: cols[2]||'' };
+    })
+    .filter(row=>row.name);
+}
+function openBulkImport(mode){
+  bulkImportMode = mode;
+  const title = document.getElementById('bulk-import-title');
+  const confirmBtn = document.getElementById('bulk-import-confirm');
+  const textEl = document.getElementById('bulk-import-text');
+  textEl.value = '';
+  if(mode==='people'){
+    title.textContent = 'Add multiple people';
+    confirmBtn.textContent = 'Add people';
+  } else {
+    title.textContent = 'Add multiple tasks';
+    confirmBtn.textContent = 'Add tasks';
+  }
+  updateBulkImportPreview();
+  document.getElementById('bulk-import-modal').classList.add('open');
+  textEl.focus();
+}
+function closeBulkImport(){
+  document.getElementById('bulk-import-modal').classList.remove('open');
+}
+function updateBulkImportPreview(){
+  const rows = parseBulkRows(document.getElementById('bulk-import-text').value);
+  const preview = document.getElementById('bulk-import-preview');
+  if(rows.length===0){ preview.textContent = 'Nothing pasted yet.'; return; }
+  const noun = bulkImportMode==='tasks' ? (rows.length===1?'task':'tasks') : (rows.length===1?'person':'people');
+  preview.textContent = `${rows.length} ${noun} will be added: ${rows.slice(0,4).map(r=>r.name).join(', ')}${rows.length>4?`, +${rows.length-4} more`:''}`;
+}
+document.getElementById('bulk-import-text').addEventListener('input', updateBulkImportPreview);
+document.getElementById('bulk-import-cancel').addEventListener('click', closeBulkImport);
+document.getElementById('bulk-import-confirm').addEventListener('click', async ()=>{
+  const rows = parseBulkRows(document.getElementById('bulk-import-text').value);
+  if(rows.length===0){ showToast('Paste at least one name first'); return; }
+  closeBulkImport();
+  if(bulkImportMode==='people'){
+    const created = [];
+    rows.forEach(row=>{
+      const id = 'm_'+Math.random().toString(36).slice(2,9);
+      const level = LEVELS.includes(row.level) ? row.level : 'IC1';
+      state.members.push({ id, name:row.name, levels:[level], isAdmin:false, teamId:currentTeamId, eligibility: elig([]) });
+      created.push({ id, email: row.email });
+    });
+    const ok = await persistMembers();
+    if(ok){
+      for(const c of created){ if(c.email) await saveContact(c.id, c.email, null); }
+      showToast(`Added ${rows.length} ${rows.length===1?'person':'people'}`);
+      logAudit('member.bulk_add', { count: rows.length, teamId: currentTeamId });
+    }
+    renderTeamTab();
+    renderTeamsList();
+  } else {
+    rows.forEach(row=>{
+      const task = { id:'task_'+Math.random().toString(36).slice(2,9), name:row.name, levels: LEVELS.includes(row.level)?[row.level]:[], excludes:null, sameAllWeek:false, notes:'' };
+      state.tasks.push(task);
+      addTaskColumnToTeamTable(task);
+      addTaskRowToReqTable(task);
+    });
+    const ok = await safeSet('tasks_'+currentTeamId, state.tasks);
+    if(ok){
+      showToast(`Added ${rows.length} ${rows.length===1?'task':'tasks'}`);
+      logAudit('task.bulk_add', { count: rows.length, teamId: currentTeamId });
+    }
+    renderTasksTab();
+    renderReqTab();
+  }
+});
+document.getElementById('btn-bulk-add-member').addEventListener('click', ()=> openBulkImport('people'));
+document.getElementById('btn-bulk-add-task').addEventListener('click', ()=> openBulkImport('tasks'));
+
 document.getElementById('btn-add-member').addEventListener('click', ()=>{
   const id = 'm_'+Math.random().toString(36).slice(2,9);
   state.members.push({id, name:'New person', levels:['IC2'], isAdmin:false, teamId:currentTeamId, eligibility: elig([])});
@@ -2103,11 +2161,32 @@ function renderTeamsList(){
       </select>
       <span class="muted" style="font-size:12px; white-space:nowrap;">${count} ${count===1?'person':'people'}</span>
       <div class="spacer"></div>
+      <button class="btn secondary small btn-duplicate-team" title="Create a new team with the same tasks and weekly needs">Duplicate</button>
       <button class="btn secondary small btn-del-team">Remove</button>
     </div>`;
   });
   wrap.innerHTML = html;
   enhanceSelectsIn(wrap);
+  wrap.querySelectorAll('.btn-duplicate-team').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = btn.closest('[data-ti]');
+      const ti = +row.dataset.ti;
+      const source = state.teams[ti];
+      const newId = 'team_'+Math.random().toString(36).slice(2,9);
+      state.teams.splice(ti+1, 0, { id:newId, name:`${source.name} (copy)`, managerId:null });
+      state.tasksByTeam[newId] = JSON.parse(JSON.stringify(state.tasksByTeam[source.id]||[]));
+      state.reqByTeam[newId] = JSON.parse(JSON.stringify(state.reqByTeam[source.id]||{}));
+      const ok = await safeSet('teams', state.teams);
+      if(ok){
+        await safeSet('tasks_'+newId, state.tasksByTeam[newId], true);
+        await safeSet('weekly_req_'+newId, state.reqByTeam[newId], true);
+        logAudit('team.duplicate', { from: source.name, to: `${source.name} (copy)` });
+        showToast(`Duplicated ${source.name} — same tasks and weekly needs, no people yet`);
+      }
+      renderTeamsList();
+      renderTeamSwitcher();
+    });
+  });
   wrap.querySelectorAll('.btn-del-team').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const row = btn.closest('[data-ti]');
