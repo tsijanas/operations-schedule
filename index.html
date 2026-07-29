@@ -251,7 +251,7 @@
   .bar-menu.open{ display:block; }
   .bar-menu-item{
     display:block; width:100%; text-align:left; background:none; border:none; padding:9px 13px;
-    font-size:12.5px; font-weight:600; color:inherit; white-space:nowrap;
+    font-size:12.5px; font-weight:600; color:inherit; white-space:normal; word-break:break-word; line-height:1.3;
   }
   .bar-menu-item:hover{ background:rgba(0,0,0,0.08); }
   .bar-menu-item[data-action="delete"]{ color:var(--brick-text); }
@@ -483,7 +483,7 @@
     <div class="sidebar-panel">
       <button class="nav-item admin-only active" data-tab="schedule">Schedule</button>
       <button class="nav-item admin-only" data-tab="org">Teams &amp; People</button>
-      <button class="nav-item admin-only" data-tab="tasks">Task rules</button>
+      <button class="nav-item admin-only" data-tab="tasks">Tasks</button>
       <button class="nav-item admin-only" data-tab="requirements">Weekly needs</button>
       <button class="nav-item admin-only" data-tab="holidays">Holidays</button>
 
@@ -540,7 +540,7 @@
     <!-- TASKS TAB -->
     <div class="tab-panel" id="tab-tasks">
       <div class="page-head">
-        <h1>Task rules</h1>
+        <h1>Tasks</h1>
         <p>The conditions each task runs under — who's allowed to do it, and whether it can't be combined with another task on the same day.</p>
       </div>
       <div class="card" id="tasks-card">
@@ -565,6 +565,12 @@
       <div class="card" style="overflow-x:auto;">
         <div class="row" style="margin-bottom:10px;"><div class="spacer"></div><button class="btn small" id="btn-save-req">Save changes</button></div>
         <div id="req-table-wrap"></div>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <h3>Grand requirement <span class="muted" style="font-weight:400; font-size:12px;">— across all teams</span></h3>
+        <div class="hint">Set one department-wide total per task, per day — it splits across your teams automatically, proportional to each team's headcount. Matches tasks by name across teams, since each team's tasks aren't formally linked yet. Nothing changes on any team's own Weekly Needs until you click Apply.</div>
+        <div id="grand-req-wrap"></div>
+        <div class="row" style="margin-top:14px;"><div class="spacer"></div><button class="btn small" id="btn-apply-grand-req">Apply to teams</button></div>
       </div>
     </div>
 
@@ -2977,6 +2983,7 @@ function renderReqTab(){
       diffCell.classList.toggle('diff-ok', diff>=0);
     });
   });
+  renderGrandReqTab();
 }
 document.getElementById('btn-save-req').addEventListener('click', async ()=>{
   const wrap = document.getElementById('req-table-wrap');
@@ -2991,6 +2998,122 @@ document.getElementById('btn-save-req').addEventListener('click', async ()=>{
   const ok = await safeSet('weekly_req_'+currentTeamId, state.req);
   if(ok) showToast('Weekly needs saved');
   renderReqTab();
+});
+
+// ---- Grand requirement: one department-wide number per task, split across teams ----
+// proportional to headcount. There's no formal "department" grouping yet (deliberately, until
+// a second one is actually real — see the conversation this came from) so for now this treats
+// every team that exists as the one group. Tasks are matched across teams by name (lowercased,
+// trimmed) since each team's task list is its own independent array today, not a shared catalog.
+function splitProportional(total, weights){
+  // weights: [{key, weight}] — returns [{key, value}] summing exactly to `total`, using the
+  // largest-remainder method so nobody's share is off by a rounding error.
+  const sumW = weights.reduce((s,w)=>s+w.weight,0);
+  if(sumW<=0 || total<=0) return weights.map(w=>({key:w.key, value:0}));
+  const raw = weights.map(w=>({key:w.key, exact: total*w.weight/sumW}));
+  const floors = raw.map(r=>({key:r.key, value:Math.floor(r.exact), rem:r.exact-Math.floor(r.exact)}));
+  let assigned = floors.reduce((s,f)=>s+f.value,0);
+  let remainder = total - assigned;
+  const order = [...floors].sort((a,b)=>b.rem-a.rem);
+  for(let i=0;i<remainder && order.length>0;i++){ order[i % order.length].value++; }
+  return floors;
+}
+function grandTaskGroups(){
+  // { lowercasedName: { displayName, perTeam: [{team, task}] } }
+  const groups = {};
+  state.teams.forEach(team=>{
+    (state.tasksByTeam[team.id]||[]).forEach(task=>{
+      const key = (task.name||'').trim().toLowerCase();
+      if(!key) return;
+      if(!groups[key]) groups[key] = { displayName: task.name, perTeam: [] };
+      groups[key].perTeam.push({ team, task });
+    });
+  });
+  return groups;
+}
+function renderGrandReqTab(){
+  const wrap = document.getElementById('grand-req-wrap');
+  if(!wrap) return;
+  const groups = grandTaskGroups();
+  const names = Object.keys(groups).sort();
+  if(names.length===0 || state.teams.length<2){
+    wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Needs at least two teams with matching task names to make sense of a department-wide split.</div>`;
+    return;
+  }
+  const teamSizes = {};
+  state.teams.forEach(t=> teamSizes[t.id] = state.members.filter(m=>m.teamId===t.id).length);
+
+  let html = '<table class="req-table"><thead><tr><th style="text-align:left;">Task</th>';
+  DAYS.forEach(d=> html+=`<th>${DAY_LABELS[d]}</th>`);
+  html += '</tr></thead><tbody>';
+  names.forEach(key=>{
+    const g = groups[key];
+    html += `<tr data-gkey="${escAttr(key)}"><td style="font-weight:600; text-align:left;">${escHtml(g.displayName)}<div class="muted" style="font-size:10.5px; font-weight:400;">on ${g.perTeam.length} team${g.perTeam.length===1?'':'s'}</div></td>`;
+    DAYS.forEach(d=> html += `<td><input type="number" min="0" class="grand-req-input" data-day="${d}" value="0"></td>`);
+    html += `</tr>`;
+    html += `<tr class="grand-req-preview" data-gkey-preview="${escAttr(key)}">`;
+    html += `<td class="muted" style="font-size:10.5px; text-align:left;">split preview</td>`;
+    DAYS.forEach(d=> html += `<td class="mono muted grand-req-split" data-day="${d}" style="font-size:10.5px;">—</td>`);
+    html += `</tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  function updateSplitPreview(row){
+    const key = row.dataset.gkey;
+    const g = groups[key];
+    const weights = g.perTeam.map(pt=>({ key:pt.team.id, weight: teamSizes[pt.team.id]||0 }));
+    const previewRow = wrap.querySelector(`[data-gkey-preview="${CSS.escape(key)}"]`);
+    DAYS.forEach(d=>{
+      const total = +row.querySelector(`[data-day="${d}"]`).value || 0;
+      const split = splitProportional(total, weights);
+      const cell = previewRow.querySelector(`.grand-req-split[data-day="${d}"]`);
+      cell.textContent = total===0 ? '—' : split.map(s=>{
+        const teamName = state.teams.find(t=>t.id===s.key)?.name || '?';
+        return `${teamName.split(' ').pop()} ${s.value}`;
+      }).join(' · ');
+    });
+  }
+  wrap.querySelectorAll('tr[data-gkey]').forEach(row=>{
+    updateSplitPreview(row);
+    row.querySelectorAll('.grand-req-input').forEach(inp=> inp.addEventListener('input', ()=> updateSplitPreview(row)));
+  });
+}
+document.getElementById('btn-apply-grand-req').addEventListener('click', async ()=>{
+  const wrap = document.getElementById('grand-req-wrap');
+  const rows = Array.from(wrap.querySelectorAll('tr[data-gkey]'));
+  if(rows.length===0) return;
+  const groups = grandTaskGroups();
+  const teamSizes = {};
+  state.teams.forEach(t=> teamSizes[t.id] = state.members.filter(m=>m.teamId===t.id).length);
+
+  askConfirm(`Apply the grand requirement to every team's own Weekly Needs? This overwrites each matching task's numbers on every affected team — any hand-adjustments made there will be replaced.`, 'Apply', async ()=>{
+    const touchedTeamIds = new Set();
+    rows.forEach(row=>{
+      const key = row.dataset.gkey;
+      const g = groups[key];
+      const weights = g.perTeam.map(pt=>({ key:pt.team.id, weight: teamSizes[pt.team.id]||0 }));
+      DAYS.forEach(d=>{
+        const total = +row.querySelector(`[data-day="${d}"]`).value || 0;
+        const split = splitProportional(total, weights);
+        split.forEach(s=>{
+          const pt = g.perTeam.find(x=>x.team.id===s.key);
+          if(!pt) return;
+          state.reqByTeam[pt.team.id] = state.reqByTeam[pt.team.id] || {};
+          state.reqByTeam[pt.team.id][pt.task.id] = state.reqByTeam[pt.team.id][pt.task.id] || {};
+          state.reqByTeam[pt.team.id][pt.task.id][d] = s.value;
+          touchedTeamIds.add(pt.team.id);
+        });
+      });
+    });
+    for(const teamId of touchedTeamIds){
+      await safeSet('weekly_req_'+teamId, state.reqByTeam[teamId], true);
+    }
+    if(touchedTeamIds.has(currentTeamId)) state.req = state.reqByTeam[currentTeamId];
+    showToast(`Applied to ${touchedTeamIds.size} team${touchedTeamIds.size===1?'':'s'}`);
+    logAudit('requirement.grand_apply', { teams: touchedTeamIds.size, tasks: rows.length });
+    renderReqTab();
+  });
 });
 
 // ================= SCHEDULING ENGINE =================
@@ -3191,8 +3314,11 @@ function buildYourWeekTableHtml(schedule, weekMonday, me){
       if(!run.mine){ html += `<td ${span>1?`colspan="${span}"`:''}></td>`; return; }
       const spanned = span > 1;
       const primaryDate = dates[run.startIdx];
+      const chipLabel = spanned
+        ? `${DAY_LABELS[DAYS[run.startIdx]].slice(0,3)}–${DAY_LABELS[DAYS[run.endIdx]].slice(0,3)}`
+        : 'You';
       html += `<td ${spanned?`colspan="${span}"`:''} class="${spanned?'spanned-cell':''}"><div class="chipwrap">
-        <button class="ywd-chip" style="background:${pColor.bg}; color:${pColor.fg};" data-date="${primaryDate}" data-task="${task.id}">${escHtml(task.name)}</button>
+        <button class="ywd-chip" style="background:${pColor.bg}; color:${pColor.fg};" data-date="${primaryDate}" data-task="${task.id}">${chipLabel}</button>
       </div></td>`;
     });
     html += '</tr>';
@@ -3547,7 +3673,10 @@ async function autoReplaceForOOO(memberId, dateISOs){
       if(wISO === iso(currentWeekMonday)) drawScheduleGrid(); // keep the on-screen grid in sync if it's the affected week
     }
   }
-  if(replaced===0 && removed===0) return; // they weren't on anything for those dates
+  if(replaced===0 && removed===0){
+    showToast(`Marked off — nothing was scheduled for ${dateISOs.length>1?'those days':'that day'} yet, so there was nothing to replace`);
+    return;
+  }
   balanceCache = null;
   const bits = [];
   if(replaced>0) bits.push(`${replaced} shift${replaced>1?'s':''} covered by ${[...replacedNames].join(', ')}`);
