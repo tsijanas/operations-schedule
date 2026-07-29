@@ -1303,7 +1303,7 @@ async function loadState(){
 
   // quick connectivity check, silent — decides whether to show the backup-reminder banner
   try{
-    const res = await window.storage.set('__connectivity_test__', JSON.stringify({t:Date.now()}), true);
+    const res = await window.storage.set('connectivity_test', JSON.stringify({t:Date.now()}), true);
     storageWorking = !!res;
   }catch(e){ storageWorking = false; lastStorageError = { when: new Date().toLocaleTimeString(), what: 'initial connectivity check — '+(e.message||e.code||e) }; }
   updateStorageBanner();
