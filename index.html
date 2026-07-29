@@ -348,17 +348,51 @@
     color:var(--ink-soft); margin:18px 2px 8px 2px; padding-top:4px;
   }
   .people-group-header:first-child{ margin-top:2px; }
-  .idea-form-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
-  .idea-item{ border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:var(--paper); }
-  .idea-item-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
-  .idea-item-title{ font-weight:700; font-size:14px; flex:1; min-width:150px; }
-  .idea-type-badge{ font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; border-radius:6px; padding:2px 7px; }
-  .idea-type-badge.idea{ background:var(--sage-soft); color:var(--ink); }
-  .idea-type-badge.bug{ background:var(--brick-soft); color:var(--brick-text); }
-  .idea-item-desc{ font-size:12.5px; color:var(--ink-soft); line-height:1.5; margin:4px 0 10px 0; white-space:pre-wrap; }
-  .idea-item-meta{ font-size:11px; color:var(--ink-faint); margin-bottom:8px; }
-  .idea-item-controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .idea-item-controls select{ width:auto; min-width:120px; font-size:12px; padding:5px 8px; }
+  .idea-form-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; }
+
+  .idea-group{ margin-bottom:18px; }
+  .idea-group-head{
+    display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.04em; border-radius:10px 10px 0 0; padding:9px 14px; border:1px solid var(--line); border-bottom:none;
+  }
+  .idea-group-count{ background:rgba(0,0,0,0.06); border-radius:10px; padding:1px 8px; font-size:10.5px; font-weight:700; }
+  .idea-group-backlog{ background:var(--paper); color:var(--ink-soft); }
+  .idea-group-in_progress{ background:var(--gold-soft); color:var(--ink); border-color:var(--gold); }
+  .idea-group-done{ background:var(--sage-soft); color:var(--ink); border-color:var(--sage); }
+  .idea-empty-row{ font-size:12px; padding:12px 14px; border:1px solid var(--line); border-top:none; }
+
+  .idea-row{
+    display:flex; align-items:center; gap:10px; padding:9px 14px; border:1px solid var(--line); border-top:none;
+    background:var(--paper);
+  }
+  .idea-group .idea-row:last-of-type{ border-radius:0 0 8px 8px; }
+  .idea-type-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .idea-type-dot.idea{ background:var(--sage); }
+  .idea-type-dot.bug{ background:var(--brick); }
+  .idea-row-title{ font-weight:600; font-size:13px; flex:1; min-width:100px; }
+  .idea-priority-pill{ font-size:10px; font-weight:700; border-radius:6px; padding:2px 8px; white-space:nowrap; }
+  .idea-priority-pill.priority-high{ background:var(--brick-soft); color:var(--brick-text); }
+  .idea-priority-pill.priority-medium{ background:var(--gold-soft); color:var(--ink); }
+  .idea-priority-pill.priority-low{ background:var(--sage-soft); color:var(--ink); }
+  .idea-row-meta{ font-size:11px; color:var(--ink-faint); white-space:nowrap; }
+  .idea-row .idea-status-pick{ width:auto; }
+  .idea-row .fsel{ width:auto; }
+  .idea-row .fsel-trigger{
+    font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:20px; width:auto;
+    border:1.5px solid var(--line); background:var(--paper); color:var(--ink-soft);
+  }
+  .idea-row .fsel-trigger.status-pill-backlog{ background:var(--paper); color:var(--ink-soft); border-color:var(--line); }
+  .idea-row .fsel-trigger.status-pill-in_progress{ background:var(--gold-soft); color:var(--ink); border-color:var(--gold); }
+  .idea-row .fsel-trigger.status-pill-done{ background:var(--sage-soft); color:var(--ink); border-color:var(--sage); }
+  .idea-row-body{ display:none; padding:4px 14px 14px 48px; border:1px solid var(--line); border-top:none; background:var(--paper); }
+  .idea-row.expanded + .idea-row-body{ display:block; }
+  .idea-row-desc{ font-size:12.5px; color:var(--ink-soft); line-height:1.5; white-space:pre-wrap; margin-bottom:10px; }
+  .idea-row-priority-pick{ display:flex; align-items:center; gap:8px; }
+  .idea-row-priority-pick label{ font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.03em; }
+  .idea-row-priority-pick select{ width:auto; font-size:12px; padding:5px 9px; }
+  .idea-drag-handle{ cursor:grab; color:var(--ink-faint); font-size:13px; flex-shrink:0; }
+  .idea-group.drag-over{ box-shadow:0 0 0 2px var(--gold) inset; border-radius:10px; }
+  .idea-row.idea-dragging{ opacity:0.4; }
   .task-elig-chip:has(.checked){ background:var(--sage-soft); border-color:var(--sage); color:var(--ink); }
 
   .fsel{ position:relative; width:100%; }
@@ -725,45 +759,47 @@
         <p>Track what's needed, what's being worked on, and what's already done — anyone approved can submit; changing status and priority is a Manager/Admin action.</p>
       </div>
       <div class="card">
-        <h3>Submit something</h3>
-        <div class="idea-form-grid">
-          <div class="field">
-            <label>Type</label>
-            <div class="m-level-cell">
-              <label class="chip-check"><input type="radio" name="idea-type" value="idea" checked> Idea</label>
-              <label class="chip-check"><input type="radio" name="idea-type" value="bug"> Bug</label>
-            </div>
-          </div>
-          <div class="field" style="grid-column:span 2;">
-            <label>Title</label>
-            <input type="text" id="idea-title" placeholder="Short summary">
-          </div>
-        </div>
-        <div class="field" style="margin-top:12px;">
-          <label>Details</label>
-          <textarea id="idea-desc" rows="3" style="width:100%; font-family:inherit; font-size:13px; padding:9px 11px; border:1px solid var(--line); border-radius:8px; resize:vertical;" placeholder="What's the idea, or what's broken and how do you reproduce it?"></textarea>
-        </div>
-        <div class="row" style="margin-top:12px;">
-          <div class="spacer"></div>
-          <button class="btn small" id="btn-submit-idea">Submit</button>
-        </div>
-      </div>
-      <div class="card">
-        <h3>All items</h3>
         <div class="row" style="margin-bottom:14px;">
-          <select id="idea-filter-status">
-            <option value="">All statuses</option>
-            <option value="backlog">Backlog</option>
-            <option value="in_progress">In progress</option>
-            <option value="done">Done</option>
-          </select>
+          <button class="btn secondary small" id="btn-toggle-idea-form">+ New idea or bug</button>
+          <div class="spacer"></div>
           <select id="idea-filter-type">
             <option value="">Ideas &amp; bugs</option>
             <option value="idea">Ideas only</option>
             <option value="bug">Bugs only</option>
           </select>
-          <div class="spacer"></div>
           <button class="btn secondary small" id="btn-refresh-ideas">Refresh</button>
+        </div>
+        <div id="idea-form-body" style="display:none; margin-bottom:18px; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--paper);">
+          <div class="idea-form-grid">
+            <div class="field">
+              <label>Type</label>
+              <div class="m-level-cell">
+                <label class="chip-check"><input type="radio" name="idea-type" value="idea" checked> Idea</label>
+                <label class="chip-check"><input type="radio" name="idea-type" value="bug"> Bug</label>
+              </div>
+            </div>
+            <div class="field">
+              <label>Priority</label>
+              <div class="m-level-cell">
+                <label class="chip-check"><input type="radio" name="idea-priority" value="low"> Low</label>
+                <label class="chip-check"><input type="radio" name="idea-priority" value="medium" checked> Medium</label>
+                <label class="chip-check"><input type="radio" name="idea-priority" value="high"> High</label>
+              </div>
+            </div>
+          </div>
+          <div class="field" style="margin-top:12px;">
+            <label>Title</label>
+            <input type="text" id="idea-title" placeholder="Short summary">
+          </div>
+          <div class="field" style="margin-top:12px;">
+            <label>Details</label>
+            <textarea id="idea-desc" rows="3" style="width:100%; font-family:inherit; font-size:13px; padding:9px 11px; border:1px solid var(--line); border-radius:8px; resize:vertical;" placeholder="What's the idea, or what's broken and how do you reproduce it?"></textarea>
+          </div>
+          <div class="row" style="margin-top:12px;">
+            <div class="spacer"></div>
+            <button class="btn secondary small" id="btn-cancel-idea">Cancel</button>
+            <button class="btn small" id="btn-submit-idea">Submit</button>
+          </div>
         </div>
         <div id="ideas-list"><div class="muted" style="font-size:12.5px;">Loading…</div></div>
       </div>
@@ -1455,6 +1491,7 @@ document.getElementById('btn-refresh-audit').addEventListener('click', renderAud
 // status/priority or deleting is Manager/Admin only, enforced in firestore.rules, not just here.
 const IDEA_STATUS_LABELS = { backlog:'Backlog', in_progress:'In progress', done:'Done' };
 const IDEA_PRIORITY_LABELS = { low:'Low priority', medium:'Medium priority', high:'High priority' };
+const IDEA_STATUS_COLOR = { backlog:'ink-soft', in_progress:'gold', done:'sage' };
 async function renderIdeasTab(){
   const wrap = document.getElementById('ideas-list');
   wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Loading…</div>`;
@@ -1463,57 +1500,118 @@ async function renderIdeasTab(){
     const snap = await getDocs(query(collection(db,'ideas_log'), orderBy('submittedAt','desc')));
     let items = [];
     snap.forEach(d=> items.push({ id:d.id, ...d.data() }));
-    const statusFilter = document.getElementById('idea-filter-status').value;
     const typeFilter = document.getElementById('idea-filter-type').value;
-    if(statusFilter) items = items.filter(i=>i.status===statusFilter);
     if(typeFilter) items = items.filter(i=>i.type===typeFilter);
     if(items.length===0){ wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Nothing here yet.</div>`; return; }
+
     let html = '';
-    items.forEach(item=>{
-      const when = item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : '';
-      html += `<div class="idea-item" data-id="${escAttr(item.id)}">
-        <div class="idea-item-head">
-          <span class="idea-type-badge ${item.type==='bug'?'bug':'idea'}">${item.type==='bug'?'Bug':'Idea'}</span>
-          <span class="idea-item-title">${escHtml(item.title||'Untitled')}</span>
-        </div>
-        ${item.description ? `<div class="idea-item-desc">${escHtml(item.description)}</div>` : ''}
-        <div class="idea-item-meta">Submitted by ${escHtml(item.submittedByName||'Unknown')}${when?' — '+when:''}</div>
-        <div class="idea-item-controls">
-          <select class="idea-status-pick">${Object.entries(IDEA_STATUS_LABELS).map(([v,l])=>`<option value="${v}" ${item.status===v?'selected':''}>${l}</option>`).join('')}</select>
-          <select class="idea-priority-pick">${Object.entries(IDEA_PRIORITY_LABELS).map(([v,l])=>`<option value="${v}" ${item.priority===v?'selected':''}>${l}</option>`).join('')}</select>
-          <button class="btn-remove-x btn-del-idea" title="Delete">×</button>
-        </div>
-      </div>`;
+    Object.entries(IDEA_STATUS_LABELS).forEach(([statusKey, statusLabel])=>{
+      const group = items.filter(i=>i.status===statusKey);
+      html += `<div class="idea-group" data-status="${statusKey}">
+        <div class="idea-group-head idea-group-${statusKey}"><span>${statusLabel}</span><span class="idea-group-count">${group.length}</span></div>`;
+      if(group.length===0){
+        html += `<div class="idea-empty-row muted">Nothing here</div>`;
+      } else {
+        group.forEach(item=>{
+          const when = item.submittedAt ? new Date(item.submittedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '';
+          html += `<div class="idea-row" data-id="${escAttr(item.id)}">
+            <span class="idea-drag-handle" draggable="true" title="Drag to change status">⠿</span>
+            <button class="card-expand-toggle" title="Expand">${chevronSvg}</button>
+            <span class="idea-type-dot ${item.type==='bug'?'bug':'idea'}" title="${item.type==='bug'?'Bug':'Idea'}"></span>
+            <span class="idea-row-title">${escHtml(item.title||'Untitled')}</span>
+            <span class="idea-priority-pill priority-${item.priority||'medium'}">${(IDEA_PRIORITY_LABELS[item.priority]||'Medium priority').replace(' priority','')}</span>
+            <span class="idea-row-meta">${escHtml(item.submittedByName||'Unknown')}${when?' · '+when:''}</span>
+            <select class="idea-status-pick" data-status="${item.status}">${Object.entries(IDEA_STATUS_LABELS).map(([v,l])=>`<option value="${v}" ${item.status===v?'selected':''}>${l}</option>`).join('')}</select>
+            <button class="btn-remove-x btn-del-idea" title="Delete">×</button>
+          </div>
+          <div class="idea-row-body">
+            ${item.description ? `<div class="idea-row-desc">${escHtml(item.description)}</div>` : `<div class="muted" style="font-size:12px;">No details added.</div>`}
+            <div class="idea-row-priority-pick">
+              <label>Priority</label>
+              <select class="idea-priority-pick">${Object.entries(IDEA_PRIORITY_LABELS).map(([v,l])=>`<option value="${v}" ${item.priority===v?'selected':''}>${l}</option>`).join('')}</select>
+            </div>
+          </div>`;
+        });
+      }
+      html += `</div>`;
     });
     wrap.innerHTML = html;
     enhanceSelectsIn(wrap);
+
+    function paintStatusPill(sel){
+      const trigger = sel.closest('.fsel')?.querySelector('.fsel-trigger');
+      if(!trigger) return;
+      Object.keys(IDEA_STATUS_COLOR).forEach(k=> trigger.classList.remove('status-pill-'+k));
+      trigger.classList.add('status-pill-'+sel.value);
+    }
+    wrap.querySelectorAll('.idea-status-pick').forEach(paintStatusPill);
+
+    async function changeIdeaStatus(id, newStatus){
+      try{
+        const { db, doc, updateDoc } = window.rotaDb;
+        await updateDoc(doc(db,'ideas_log', id), { status: newStatus });
+        logAudit('idea.status_change', { id, status: newStatus });
+        renderIdeasTab();
+      }catch(e){ console.error('Could not update status', e); showToast('Could not update — are you an Admin?'); renderIdeasTab(); }
+    }
+
+    let dragSrcIdeaId = null;
+    wrap.querySelectorAll('.idea-drag-handle').forEach(handle=>{
+      const row = handle.closest('.idea-row');
+      handle.addEventListener('dragstart', (e)=>{
+        dragSrcIdeaId = row.dataset.id;
+        row.classList.add('idea-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try{ e.dataTransfer.setDragImage(row, 20, 14); }catch(err){}
+      });
+      handle.addEventListener('dragend', ()=>{
+        row.classList.remove('idea-dragging');
+        wrap.querySelectorAll('.idea-group').forEach(g=>g.classList.remove('drag-over'));
+        dragSrcIdeaId = null;
+      });
+    });
+    wrap.querySelectorAll('.idea-group').forEach(group=>{
+      group.addEventListener('dragover', (e)=>{
+        if(dragSrcIdeaId===null) return;
+        e.preventDefault();
+        group.classList.add('drag-over');
+      });
+      group.addEventListener('dragleave', ()=> group.classList.remove('drag-over'));
+      group.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        group.classList.remove('drag-over');
+        if(dragSrcIdeaId===null) return;
+        changeIdeaStatus(dragSrcIdeaId, group.dataset.status);
+      });
+    });
+
+    wrap.querySelectorAll('.card-expand-toggle').forEach(btn=>{
+      btn.addEventListener('click', ()=> btn.closest('.idea-row').classList.toggle('expanded'));
+    });
     wrap.querySelectorAll('.idea-status-pick').forEach(sel=>{
-      sel.addEventListener('change', async ()=>{
-        const id = sel.closest('.idea-item').dataset.id;
-        try{
-          const { db, doc, updateDoc } = window.rotaDb;
-          await updateDoc(doc(db,'ideas_log', id), { status: sel.value });
-          logAudit('idea.status_change', { id, status: sel.value });
-          showToast('Updated');
-        }catch(e){ console.error('Could not update status', e); showToast('Could not update — are you an Admin?'); renderIdeasTab(); }
+      sel.addEventListener('change', ()=>{
+        const id = sel.closest('.idea-row').dataset.id;
+        paintStatusPill(sel);
+        changeIdeaStatus(id, sel.value);
       });
     });
     wrap.querySelectorAll('.idea-priority-pick').forEach(sel=>{
       sel.addEventListener('change', async ()=>{
-        const id = sel.closest('.idea-item').dataset.id;
+        const id = sel.closest('.idea-row-body').previousElementSibling.dataset.id;
         try{
           const { db, doc, updateDoc } = window.rotaDb;
           await updateDoc(doc(db,'ideas_log', id), { priority: sel.value });
           logAudit('idea.priority_change', { id, priority: sel.value });
           showToast('Updated');
+          renderIdeasTab();
         }catch(e){ console.error('Could not update priority', e); showToast('Could not update — are you an Admin?'); renderIdeasTab(); }
       });
     });
     wrap.querySelectorAll('.btn-del-idea').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const item = btn.closest('.idea-item');
-        const id = item.dataset.id;
-        const title = item.querySelector('.idea-item-title').textContent;
+        const row = btn.closest('.idea-row');
+        const id = row.dataset.id;
+        const title = row.querySelector('.idea-row-title').textContent;
         askConfirm(`Delete "${title}"? This can't be undone.`, 'Delete', async ()=>{
           try{
             const { db, doc, deleteDoc } = window.rotaDb;
@@ -1531,27 +1629,41 @@ async function renderIdeasTab(){
   }
 }
 document.getElementById('btn-refresh-ideas').addEventListener('click', renderIdeasTab);
-document.getElementById('idea-filter-status').addEventListener('change', renderIdeasTab);
 document.getElementById('idea-filter-type').addEventListener('change', renderIdeasTab);
+document.getElementById('btn-toggle-idea-form').addEventListener('click', ()=>{
+  const body = document.getElementById('idea-form-body');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if(!open) document.getElementById('idea-title').focus();
+});
+document.getElementById('btn-cancel-idea').addEventListener('click', ()=>{
+  document.getElementById('idea-form-body').style.display = 'none';
+  document.getElementById('idea-title').value = '';
+  document.getElementById('idea-desc').value = '';
+  document.querySelector('input[name="idea-priority"][value="medium"]').checked = true;
+});
 document.getElementById('btn-submit-idea').addEventListener('click', async ()=>{
   const title = document.getElementById('idea-title').value.trim();
   if(!title){ showToast('Give it a short title first'); return; }
   const type = document.querySelector('input[name="idea-type"]:checked').value;
+  const priority = document.querySelector('input[name="idea-priority"]:checked').value;
   const description = document.getElementById('idea-desc').value.trim();
   try{
     const { db, collection, doc, setDoc } = window.rotaDb;
     const id = 'idea_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
     await setDoc(doc(db,'ideas_log', id), {
       type, title, description,
-      status:'backlog', priority:'medium',
+      status:'backlog', priority,
       submittedBy: currentAuthUid||null,
       submittedByName: (viewerIdentityId && state.members.find(m=>m.id===viewerIdentityId)?.name) || 'Unknown',
       submittedAt: Date.now()
     });
     document.getElementById('idea-title').value = '';
     document.getElementById('idea-desc').value = '';
+    document.querySelector('input[name="idea-priority"][value="medium"]').checked = true;
+    document.getElementById('idea-form-body').style.display = 'none';
     showToast('Submitted — thanks!');
-    logAudit('idea.submit', { type, title });
+    logAudit('idea.submit', { type, title, priority });
     renderIdeasTab();
   }catch(e){ console.error('Could not submit', e); showToast('Could not submit — try again'); }
 });
