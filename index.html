@@ -501,7 +501,8 @@
 
   <div class="main">
     <div class="storage-banner" id="storage-banner">
-      Autosave isn't reaching the cloud right now — changes only live in this browser tab. Use <strong>Data → Export</strong> before closing this tab, and import it again next time.
+      <div>Autosave isn't reaching the cloud right now — changes only live in this browser tab. Use <strong>Data → Export</strong> before closing this tab, and import it again next time.
+      <div id="storage-banner-detail" class="mono" style="font-size:11px; opacity:0.85; margin-top:4px;"></div></div>
     </div>
 
     <!-- TEAMS & PEOPLE TAB -->
@@ -1177,6 +1178,7 @@ function fmtWeek(mon){ const sun=addDays(mon,6); const opt={month:'long',day:'nu
 // is the real source of truth for the session — every read/write updates it immediately, and
 // a save to the cloud is attempted on top but never blocks or resets what's on screen.
 let storageWorking = null; // null = unknown yet, true/false once we know
+let lastStorageError = null; // { when, what } — surfaced in the banner itself
 
 async function loadState(){
   // Teams first — if there are none yet, this is either a brand-new install or an upgrade
@@ -1303,7 +1305,7 @@ async function loadState(){
   try{
     const res = await window.storage.set('__connectivity_test__', JSON.stringify({t:Date.now()}), true);
     storageWorking = !!res;
-  }catch(e){ storageWorking = false; }
+  }catch(e){ storageWorking = false; lastStorageError = { when: new Date().toLocaleTimeString(), what: 'initial connectivity check — '+(e.message||e.code||e) }; }
   updateStorageBanner();
 }
 async function safeSet(key, val, silent){
@@ -1315,6 +1317,7 @@ async function safeSet(key, val, silent){
   }catch(e){
     console.error('storage set failed', key, e);
     storageWorking = false;
+    lastStorageError = { when: new Date().toLocaleTimeString(), what: `saving "${key}" — `+(e.message||e.code||e) };
     updateStorageBanner();
     if(!silent) showToast('Saved on this screen — cloud sync failed, see banner above');
     return false;
@@ -1353,6 +1356,7 @@ async function persistHolidays(){
   }catch(e){
     console.error('Could not save holidays', e);
     storageWorking = false;
+    lastStorageError = { when: new Date().toLocaleTimeString(), what: 'saving holidays — '+(e.message||e.code||e) };
     updateStorageBanner();
     showToast('Saved on this screen — cloud sync failed, see banner above');
     return false;
@@ -1655,6 +1659,7 @@ async function persistMembers(){
   }catch(e){
     console.error('Could not save members', e);
     storageWorking = false;
+    lastStorageError = { when: new Date().toLocaleTimeString(), what: 'saving people — '+(e.message||e.code||e) };
     updateStorageBanner();
     showToast('Saved on this screen — cloud sync failed, see banner above');
     return false;
@@ -1677,6 +1682,8 @@ function updateStorageBanner(){
   const el = document.getElementById('storage-banner');
   if(!el) return;
   el.style.display = storageWorking===false ? 'flex' : 'none';
+  const detail = document.getElementById('storage-banner-detail');
+  if(detail) detail.textContent = lastStorageError ? `Last failure: ${lastStorageError.when} — ${lastStorageError.what}` : '';
 }
 
 // ---------- toast (with optional Undo) ----------
