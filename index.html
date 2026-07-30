@@ -2717,6 +2717,10 @@ function renderTeamsList(){
         <option value="">— no manager set —</option>
         ${teamLeadOptions.map(m=>`<option value="${m.id}" ${m.id===t.managerId?'selected':''}>${escHtml(m.name)}</option>`).join('')}
       </select>
+      <select class="team-department">
+        <option value="">— no department —</option>
+        ${state.departments.map(d=>`<option value="${d.id}" ${d.id===t.departmentId?'selected':''}>${escHtml(d.name)}</option>`).join('')}
+      </select>
       <span class="muted" style="font-size:12px; white-space:nowrap;">${count} ${count===1?'person':'people'}</span>
       <div class="spacer"></div>
       <button class="btn secondary small btn-duplicate-team" title="Create a new team with the same tasks and weekly needs">Duplicate</button>
@@ -2731,7 +2735,7 @@ function renderTeamsList(){
       const ti = +row.dataset.ti;
       const source = state.teams[ti];
       const newId = 'team_'+Math.random().toString(36).slice(2,9);
-      state.teams.splice(ti+1, 0, { id:newId, name:`${source.name} (copy)`, managerId:null });
+      state.teams.splice(ti+1, 0, { id:newId, name:`${source.name} (copy)`, managerId:null, departmentId:source.departmentId||null });
       state.tasksByTeam[newId] = JSON.parse(JSON.stringify(state.tasksByTeam[source.id]||[]));
       state.reqByTeam[newId] = JSON.parse(JSON.stringify(state.reqByTeam[source.id]||{}));
       const ok = await safeSet('teams', state.teams);
@@ -2783,7 +2787,8 @@ function renderTeamsList(){
 }
 document.getElementById('btn-add-team').addEventListener('click', ()=>{
   const id = 'team_'+Math.random().toString(36).slice(2,9);
-  state.teams.push({id, name:'New Team', managerId:null});
+  const deptId = (currentDepartmentId && currentDepartmentId!=='__ungrouped__') ? currentDepartmentId : null;
+  state.teams.push({id, name:'New Team', managerId:null, departmentId:deptId});
   state.tasksByTeam[id] = JSON.parse(JSON.stringify(DEFAULT_TASKS));
   state.reqByTeam[id] = JSON.parse(JSON.stringify(DEFAULT_REQ));
   renderTeamsList();
@@ -2795,7 +2800,8 @@ document.getElementById('btn-save-teams').addEventListener('click', async ()=>{
     const ti = +row.dataset.ti;
     const name = row.querySelector('.team-name').value.trim() || 'Untitled team';
     const managerId = row.querySelector('.team-manager').value || null;
-    state.teams[ti] = {...state.teams[ti], name, managerId};
+    const departmentId = row.querySelector('.team-department').value || null;
+    state.teams[ti] = {...state.teams[ti], name, managerId, departmentId};
   });
   const ok = await safeSet('teams', state.teams);
   if(ok){ showToast('Teams saved'); logAudit('team.save_all', { count: state.teams.length }); }
