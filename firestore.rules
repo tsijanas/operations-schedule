@@ -62,6 +62,8 @@ service cloud.firestore {
         && d.levels is list && d.levels.size() <= 10
         && (d.teamId == null || d.teamId is string)
         && (!('isAdmin' in d) || d.isAdmin is bool)
+        && (!('role' in d) || d.role == null || d.role in ['admin','manager'])
+        && (!('managerDeptId' in d) || d.managerDeptId == null || d.managerDeptId is string)
         && d.eligibility is map;
     }
     function isValidHoliday(d) {

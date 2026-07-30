@@ -328,6 +328,7 @@
     font-size:9.5px; font-weight:700; color:#fff; background:var(--brick-text); border-radius:6px;
     padding:2px 7px; letter-spacing:0.03em; text-transform:uppercase;
   }
+  .admin-badge.manager-badge{ background:var(--ink); }
   .admin-toggle-row{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 14px 0;
     padding:9px 12px; border-radius:10px; background:var(--brick-soft); border:1px solid var(--brick);
@@ -508,6 +509,10 @@
         <button class="link-on-dark" id="btn-change-identity">Sign out</button>
       </div>
 
+      <div class="team-switcher admin-only" id="dept-switcher-wrap" style="display:none;">
+        <label for="dept-switch-select" id="dept-switch-label">Department</label>
+        <select id="dept-switch-select"></select>
+      </div>
       <div class="team-switcher admin-only">
         <label for="team-switch-select">Viewing team</label>
         <select id="team-switch-select"></select>
@@ -832,6 +837,11 @@
           <div class="spacer"></div>
           <button class="btn small" id="btn-import">Load this data</button>
         </div>
+      </div>
+      <div class="card" id="dept-setup-card">
+        <h3>Set up a department</h3>
+        <div class="hint">Groups several teams under one department, with a combined Grand Schedule and Grand Requirement. This renames one existing team and links it (and any others you pick) to the new department — nobody's people, tasks, or schedule history are touched. Export a backup first if you'd like a copy of exactly how things look right now.</div>
+        <div id="dept-setup-body"></div>
       </div>
       <div class="card">
         <h3>Audit log</h3>
@@ -1181,7 +1191,7 @@ const DEFAULT_MEMBERS = [
 // state.tasks / state.req / state.schedules are accessors (defined below) that transparently
 // read and write whichever team is currently selected — every existing function that already
 // used state.tasks/state.req/state.schedules keeps working unchanged, just scoped per team now.
-let state = { members:[], teams:[], tasksByTeam:{}, reqByTeam:{}, holidays:{}, holidayReasons:{}, schedulesByTeam:{} };
+let state = { members:[], teams:[], departments:[], tasksByTeam:{}, reqByTeam:{}, holidays:{}, holidayReasons:{}, schedulesByTeam:{} };
 let currentTeamId = null;
 Object.defineProperty(state, 'tasks', {
   get(){ return state.tasksByTeam[currentTeamId] || (state.tasksByTeam[currentTeamId] = []); },
@@ -1225,6 +1235,8 @@ async function loadState(){
   state.teams = firstRun ? JSON.parse(JSON.stringify(DEFAULT_TEAMS)) : teams;
   currentTeamId = state.teams[0].id;
 
+  try{ const d = await window.storage.get('departments', true); state.departments = d ? JSON.parse(d.value) : []; }catch(e){ state.departments = []; }
+
   let loadedMembersFromCollection = false;
   try{
     const { db, collection, getDocs } = window.rotaDb;
@@ -1258,6 +1270,14 @@ async function loadState(){
     // but Level itself no longer grants anything on its own going forward.
     if(mem.isAdmin === undefined){
       mem.isAdmin = (mem.levels||[]).includes('Manager');
+      membersMigrated = true;
+    }
+    // One-time migration: the old isAdmin boolean becomes the first of three roles — anyone
+    // with isAdmin:true becomes role:'admin' (org-wide), keeping exactly the access they had.
+    // Nobody is ever migrated into 'manager' automatically, since that's a new, more scoped
+    // role that has to be a deliberate choice, not an inferred one.
+    if(mem.role === undefined){
+      mem.role = mem.isAdmin ? 'admin' : null;
       membersMigrated = true;
     }
   });
@@ -1484,6 +1504,65 @@ async function renderAuditLog(){
   }
 }
 document.getElementById('btn-refresh-audit').addEventListener('click', renderAuditLog);
+
+// ---- Department setup ----
+// Departments live in the same generic KV store as teams (key 'departments') — no new
+// Firestore collection or rules needed, same pattern as everything else stored that way.
+// This is a deliberate, reviewable action a person triggers and confirms, never something
+// that runs automatically on load — the one part of this whole feature that's genuinely
+// hard to fully undo, so it doesn't get to happen silently.
+function renderDeptSetupCard(){
+  const wrap = document.getElementById('dept-setup-body');
+  if(!wrap) return;
+  if(state.departments.length > 0){
+    wrap.innerHTML = state.departments.map(dept=>{
+      const teamsIn = state.teams.filter(t=>t.departmentId===dept.id);
+      return `<div style="border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;">
+        <div style="font-weight:700; font-size:13.5px; margin-bottom:4px;">${escHtml(dept.name)}</div>
+        <div class="muted" style="font-size:12px;">${teamsIn.length===0?'No teams linked yet.':teamsIn.map(t=>escHtml(t.name)).join(', ')}</div>
+      </div>`;
+    }).join('') + `<div class="muted" style="font-size:12px; margin-top:6px;">To attach another existing team to a department, or create a second department, tell me and I'll add that flow — kept this first pass to a single one-time setup.</div>`;
+    return;
+  }
+  const otherTeams = state.teams.filter(t=>t.id!==currentTeamId);
+  wrap.innerHTML = `
+    <div class="field"><label>Department name</label><input type="text" id="dept-name-input" value="AML Operations"></div>
+    <div class="member-card-grid" style="margin-top:12px;">
+      <div class="field"><label>Team to rename (becomes the first sub-team)</label>
+        <select id="dept-primary-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===currentTeamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>New name for that team</label><input type="text" id="dept-primary-team-name" value="Team Akvile"></div>
+    </div>
+    ${otherTeams.length>0 ? `<div class="field" style="margin-top:12px;">
+      <label>Also link these existing teams to the department</label>
+      <div class="m-level-cell">${otherTeams.map(t=>`<label class="chip-check"><input type="checkbox" class="dept-other-team" value="${t.id}"> ${escHtml(t.name)}</label>`).join('')}</div>
+    </div>` : ''}
+    <div class="row" style="margin-top:16px;"><div class="spacer"></div><button class="btn small" id="btn-create-dept">Create department</button></div>
+  `;
+  document.getElementById('btn-create-dept').addEventListener('click', ()=>{
+    const deptName = document.getElementById('dept-name-input').value.trim();
+    const primaryTeamId = document.getElementById('dept-primary-team').value;
+    const newTeamName = document.getElementById('dept-primary-team-name').value.trim();
+    const otherIds = Array.from(document.querySelectorAll('.dept-other-team:checked')).map(cb=>cb.value);
+    if(!deptName || !newTeamName){ showToast('Fill in both the department name and the new team name'); return; }
+    const primaryTeam = state.teams.find(t=>t.id===primaryTeamId);
+    const otherNames = otherIds.map(id=> state.teams.find(t=>t.id===id)?.name).filter(Boolean);
+    const summary = `"${primaryTeam.name}" will be renamed to "${newTeamName}"${otherNames.length?`, and ${otherNames.join(', ')} will also join this department`:''}. Everyone's people, tasks, and schedule history stay exactly as they are — only the team name and department grouping change.`;
+    askConfirm(`Create department "${deptName}"? ${summary}`, 'Create department', async ()=>{
+      const deptId = 'dept_'+Math.random().toString(36).slice(2,9);
+      state.departments.push({ id:deptId, name:deptName });
+      primaryTeam.name = newTeamName;
+      primaryTeam.departmentId = deptId;
+      otherIds.forEach(id=>{ const t = state.teams.find(x=>x.id===id); if(t) t.departmentId = deptId; });
+      const ok = await safeSet('departments', state.departments);
+      await safeSet('teams', state.teams);
+      if(ok){ showToast(`Department "${deptName}" created`); logAudit('department.create', { name: deptName, primaryTeam: newTeamName, otherTeams: otherNames.join(', ') }); }
+      renderDeptSetupCard();
+      renderTeamsList();
+      renderTeamSwitcher();
+    });
+  });
+}
 
 // ---- Ideas & Bugs tracker ----
 // One doc per item in its own collection (ideas_log), same pattern as everything else that
@@ -1858,7 +1937,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
     if(btn.dataset.tab==='schedule') renderScheduleTab();
     if(btn.dataset.tab==='balance') renderBalanceTab();
     if(btn.dataset.tab==='holidays') renderHolidaysTab();
-    if(btn.dataset.tab==='data') renderAuditLog();
+    if(btn.dataset.tab==='data'){ renderAuditLog(); renderDeptSetupCard(); }
     if(btn.dataset.tab==='ideas') renderIdeasTab();
   });
 });
@@ -1982,7 +2061,8 @@ function renderTeamTab(){
     return;
   }
   function primaryGroupFor(mem){
-    if(mem.isAdmin) return 'admin';
+    if(mem.role==='admin') return 'admin';
+    if(mem.role==='manager') return 'dept_manager';
     const lv = mem.levels||[];
     if(lv.includes('Manager')) return 'manager';
     if(lv.includes('IC3')) return 'ic3';
@@ -1992,6 +2072,7 @@ function renderTeamTab(){
   }
   const GROUP_DEFS = [
     {key:'admin', label:'Admins'},
+    {key:'dept_manager', label:'Department Managers'},
     {key:'manager', label:'Manager'},
     {key:'ic3', label:'IC3'},
     {key:'ic2', label:'IC2'},
@@ -2006,13 +2087,15 @@ function renderTeamTab(){
    groupMembers.forEach(m=>{
     const teamName = (state.teams.find(t=>t.id===m.teamId)||{}).name || 'Unassigned';
     const levelTags = (m.levels||[]).map(l=>`<span class="task-lvl-tag">${escHtml(l)}</span>`).join('') || `<span class="muted" style="font-size:11px;">No level set</span>`;
-    const adminBadge = m.isAdmin ? `<span class="admin-badge" title="Has Admin access to this tool">Admin</span>` : '';
+    const roleBadge = m.role==='admin' ? `<span class="admin-badge" title="Full access, everywhere">Admin</span>`
+      : m.role==='manager' ? `<span class="admin-badge manager-badge" title="Full access within ${escAttr((state.departments.find(d=>d.id===m.managerDeptId)||{}).name||'their department')}">Manager</span>`
+      : '';
     html += `<div class="member-card" data-mid="${m.id}">
       <div class="member-card-head">
         <input type="checkbox" class="card-select-check" data-mid="${m.id}">
         <button class="card-expand-toggle" title="Expand">${chevronSvg}</button>
         <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="Name">
-        <div class="member-card-summary">${adminBadge}${levelTags}<span class="muted" style="font-size:11.5px; white-space:nowrap;">${escHtml(teamName)}</span></div>
+        <div class="member-card-summary">${roleBadge}${levelTags}<span class="muted" style="font-size:11.5px; white-space:nowrap;">${escHtml(teamName)}</span></div>
         <div class="row-actions">
           <button class="btn-remove-x btn-del-member" title="Remove">×</button>
         </div>
@@ -2025,11 +2108,20 @@ function renderTeamTab(){
           <div class="field"><label>Team</label><select class="m-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===m.teamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select></div>
         </div>
         <div class="admin-toggle-row">
-          <label class="admin-toggle">
-            <input type="checkbox" class="m-admin-check" ${m.isAdmin?'checked':''}>
-            <span>Admin access</span>
-          </label>
-          <span class="muted" style="font-size:11px;">Full edit access to this tool — separate from their scheduling level. Grant carefully.</span>
+          <div style="flex:1;">
+            <label style="font-size:11px; font-weight:700; color:var(--brick-text); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Role</label>
+            <div class="m-level-cell">
+              <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="" ${!m.role?'checked':''}> Viewer</label>
+              <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="manager" ${m.role==='manager'?'checked':''}> Manager</label>
+              <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="admin" ${m.role==='admin'?'checked':''}> Admin</label>
+            </div>
+            <div class="m-manager-dept-row" style="margin-top:8px; ${m.role==='manager'?'':'display:none;'}">
+              ${state.departments.length===0
+                ? `<span class="muted" style="font-size:11px;">No departments exist yet — set one up in the Data tab first.</span>`
+                : `<select class="m-manager-dept">${state.departments.map(d=>`<option value="${d.id}" ${m.managerDeptId===d.id?'selected':''}>${escHtml(d.name)}</option>`).join('')}</select>`}
+            </div>
+          </div>
+          <span class="muted" style="font-size:11px;">Manager sees and edits everything in their department (Grand Schedule/Requirement across its teams) but not other departments. Admin sees and edits everything, everywhere. Grant carefully.</span>
         </div>
         <div class="member-card-tasks">
           <label>Eligible tasks</label>
@@ -2059,12 +2151,16 @@ function renderTeamTab(){
   function readRow(card){
     const name = card.querySelector('.m-name').value.trim() || 'New person';
     const levels = Array.from(card.querySelectorAll('.m-level-check:checked')).map(c=>c.value);
-    const isAdmin = card.querySelector('.m-admin-check').checked;
+    const roleInput = card.querySelector('.m-role-pick:checked');
+    const role = roleInput && roleInput.value ? roleInput.value : null;
+    const managerDeptSel = card.querySelector('.m-manager-dept');
+    const managerDeptId = role==='manager' && managerDeptSel ? managerDeptSel.value : null;
+    const isAdmin = role==='admin'; // kept in sync so every existing isAdmin check elsewhere still works
     const email = card.querySelector('.m-email').value.trim();
     const teamId = card.querySelector('.m-team').value;
     const eligibility = {};
     card.querySelectorAll('.checkbox[data-task]').forEach(cb=>{ eligibility[cb.dataset.task] = cb.classList.contains('checked'); });
-    return { id: card.dataset.mid, name, levels, isAdmin, email, teamId, eligibility };
+    return { id: card.dataset.mid, name, levels, role, managerDeptId, isAdmin, email, teamId, eligibility };
   }
 // ---- Merging a duplicate person ----
 // Comes up when someone was added manually and later signed up separately (or their account
@@ -2240,6 +2336,12 @@ async function mergeMembers(keepId, absorbId){
     cb.addEventListener('change', updateDeleteSelectedState);
   });
   updateDeleteSelectedState();
+  wrap.querySelectorAll('.m-role-pick').forEach(radio=>{
+    radio.addEventListener('change', ()=>{
+      const row = radio.closest('.admin-toggle-row').querySelector('.m-manager-dept-row');
+      row.style.display = radio.value==='manager' ? '' : 'none';
+    });
+  });
 // ---- Revoking access on removal ----
 // Deleting a member's row used to leave three things behind: their holiday history (orphaned,
 // nobody's), and their uid still sitting in access_control/approved (and managers, if they had
@@ -2466,7 +2568,7 @@ document.getElementById('btn-bulk-add-task').addEventListener('click', ()=> open
 
 document.getElementById('btn-add-member').addEventListener('click', ()=>{
   const id = 'm_'+Math.random().toString(36).slice(2,9);
-  state.members.push({id, name:'New person', levels:['IC2'], isAdmin:false, teamId:currentTeamId, eligibility: elig([])});
+  state.members.push({id, name:'New person', levels:['IC2'], isAdmin:false, role:null, managerDeptId:null, teamId:currentTeamId, eligibility: elig([])});
   renderTeamTab();
   const card = document.querySelector(`.member-card[data-mid="${id}"]`);
   if(card){ card.classList.add('expanded'); card.querySelector('.m-name').focus(); card.querySelector('.m-name').select(); }
@@ -2477,14 +2579,24 @@ function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 
 // ================= TEAM SWITCHER (sidebar, always visible) =================
-function colorForTeam(teamId){
-  // Light-only subset of the shared palette — team accent is used as a *full* button
-  // background (not just a tint), so it must never land on the palette's one dark entry,
-  // which would make dark ink text illegible without extra per-color contrast logic.
+// Deterministic string→color mapping shared by team and task colors — same input always
+// produces the same color for everyone, since it's just a hash, not anything stored.
+// Light-only subset of the shared palette: this gets used as a *full* background in some
+// contexts (not just a tint), so it must never land on the palette's one dark entry, which
+// would make dark ink text illegible without extra per-color contrast logic.
+function hashToLightColor(str){
   const lightPalette = HOLIDAY_PALETTE.filter(c=>c.fg!=='#EDFFE9');
   let hash = 0;
-  for(let i=0;i<teamId.length;i++){ hash = (hash*31 + teamId.charCodeAt(i)) >>> 0; }
+  for(let i=0;i<str.length;i++){ hash = (hash*31 + str.charCodeAt(i)) >>> 0; }
   return lightPalette[hash % lightPalette.length];
+}
+function colorForTeam(teamId){
+  return hashToLightColor(teamId);
+}
+// Same task = same color everywhere, for everyone — used anywhere a task needs to be told
+// apart at a glance without relying on reading its name (e.g. "Your tasks this week").
+function colorForTask(taskId){
+  return hashToLightColor('task:'+taskId);
 }
 function applyTeamAccent(){
   if(!currentTeamId) return;
@@ -2492,17 +2604,87 @@ function applyTeamAccent(){
   document.documentElement.style.setProperty('--team-accent', c.bg);
   document.documentElement.style.setProperty('--team-accent-fg', c.fg);
 }
+let currentDepartmentId = null; // which department is currently being browsed (Admin only — Manager is locked to their own)
+function currentViewerMember(){
+  return state.members.find(m=>m.id===viewerIdentityId);
+}
+// Departments an Admin can browse: every real department, plus a virtual "Ungrouped teams"
+// bucket for any team not yet linked to one (keeps older/unmigrated teams reachable rather
+// than silently hiding them). A Manager only ever has exactly one entry here: their own.
+function visibleDepartmentsForViewer(){
+  const me = currentViewerMember();
+  const ungroupedExists = state.teams.some(t=>!t.departmentId);
+  if(me && me.role==='manager'){
+    const dept = state.departments.find(d=>d.id===me.managerDeptId);
+    return dept ? [dept] : [];
+  }
+  const list = state.departments.slice();
+  if(ungroupedExists) list.push({ id:'__ungrouped__', name:'Ungrouped teams' });
+  return list;
+}
+function teamsInDepartment(deptId){
+  if(deptId==='__ungrouped__') return state.teams.filter(t=>!t.departmentId);
+  return state.teams.filter(t=>t.departmentId===deptId);
+}
 function renderTeamSwitcher(){
-  const sel = document.getElementById('team-switch-select');
-  sel.innerHTML = state.teams.map(t=>`<option value="${t.id}" ${t.id===currentTeamId?'selected':''}>${escHtml(t.name)}</option>`).join('');
-  enhanceSelect(sel);
+  const deptWrap = document.getElementById('dept-switcher-wrap');
+  const deptSel = document.getElementById('dept-switch-select');
+  const deptLabel = document.getElementById('dept-switch-label');
+  const teamSel = document.getElementById('team-switch-select');
+  const me = currentViewerMember();
+  const depts = visibleDepartmentsForViewer();
+
+  if(depts.length===0){
+    // Nobody's set up a department yet (or a manager's own department vanished) — fall back
+    // to the flat, ungrouped list of every team, same behavior as before departments existed.
+    deptWrap.style.display = 'none';
+    teamSel.innerHTML = state.teams.map(t=>`<option value="${t.id}" ${t.id===currentTeamId?'selected':''}>${escHtml(t.name)}</option>`).join('');
+    enhanceSelect(teamSel);
+    applyTeamAccent();
+    return;
+  }
+
+  if(!currentDepartmentId || !depts.some(d=>d.id===currentDepartmentId)){
+    const teamsCurrentDept = state.teams.find(t=>t.id===currentTeamId)?.departmentId;
+    currentDepartmentId = (teamsCurrentDept && depts.some(d=>d.id===teamsCurrentDept)) ? teamsCurrentDept : depts[0].id;
+  }
+
+  if(me && me.role==='manager'){
+    // Locked — a Manager never gets a department picker, just a label naming the one they manage.
+    deptWrap.style.display = depts.length ? 'block' : 'none';
+    deptSel.style.display = 'none';
+    deptLabel.textContent = `Department — ${depts[0]?.name || ''}`;
+  } else {
+    deptWrap.style.display = 'block';
+    deptSel.style.display = '';
+    deptLabel.textContent = 'Department';
+    deptSel.innerHTML = depts.map(d=>`<option value="${d.id}" ${d.id===currentDepartmentId?'selected':''}>${escHtml(d.name)}</option>`).join('');
+    enhanceSelect(deptSel);
+  }
+
+  const teamsHere = teamsInDepartment(currentDepartmentId);
+  teamSel.innerHTML = teamsHere.map(t=>`<option value="${t.id}" ${t.id===currentTeamId?'selected':''}>${escHtml(t.name)}</option>`).join('');
+  enhanceSelect(teamSel);
   applyTeamAccent();
 }
+document.getElementById('dept-switch-select').addEventListener('change', (e)=>{
+  currentDepartmentId = e.target.value;
+  const teamsHere = teamsInDepartment(currentDepartmentId);
+  if(teamsHere.length>0) switchTeam(teamsHere[0].id); else renderTeamSwitcher();
+});
 document.getElementById('team-switch-select').addEventListener('change', (e)=>{ switchTeam(e.target.value); });
 // Switching teams swaps what state.tasks/state.req/state.schedules point to (see the
 // accessors near the top), then rebuilds every team-scoped tab so nothing shows stale data
 // left over from whichever team was selected before.
 async function switchTeam(teamId){
+  const me = currentViewerMember();
+  if(me && me.role==='manager'){
+    const target = state.teams.find(t=>t.id===teamId);
+    if(!target || target.departmentId !== me.managerDeptId){
+      showToast("That team isn't in your department");
+      return;
+    }
+  }
   currentTeamId = teamId;
   balanceCache = null;
   renderTeamSwitcher();
@@ -3403,46 +3585,23 @@ function buildYourWeekTableHtml(schedule, weekMonday, me){
   const myTasks = state.tasks.filter(t=> dates.some(dISO=> ((schedule[dISO]||{})[t.id]||[]).includes(me.id)));
   if(myTasks.length===0) return `<div class="your-week-empty">Nothing assigned to you this week.</div>`;
 
-  const pColor = colorForMember(me.id);
-  function runsFor(taskId){
-    const task = state.tasks.find(t=>t.id===taskId);
-    const allowMerge = !!(task && task.sameAllWeek);
-    const runs = [];
-    let i = 0;
-    while(i < DAYS.length){
-      const mine = ((schedule[dates[i]]||{})[taskId]||[]).includes(me.id);
-      let j = i;
-      if(mine && allowMerge){ while(j+1 < DAYS.length && ((schedule[dates[j+1]]||{})[taskId]||[]).includes(me.id)) j++; }
-      runs.push({startIdx:i, endIdx:j, mine});
-      i = j+1;
-    }
-    return runs;
-  }
-
-  let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
+  let html = '<table class="sched-table your-week-table"><thead><tr><th style="width:15%;"></th>';
   DAYS.forEach((d,i)=>{
     const dt = addDays(weekMonday,i);
     const bhName = bankHolidayName(iso(dt));
     html += `<th class="${bhName?'bank-hol-col':''}" title="${bhName?escAttr(bhName):''}"><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span>${bhName?'<span class="bank-hol-dot"></span>':''}</div></th>`;
   });
-  html += '</tr></thead><tbody>';
-  myTasks.forEach(task=>{
-    html += `<tr><td class="taskname" title="${escAttr(task.name)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(task.name)}</span></div></td>`;
-    runsFor(task.id).forEach(run=>{
-      const span = run.endIdx - run.startIdx + 1;
-      if(!run.mine){ html += `<td ${span>1?`colspan="${span}"`:''}></td>`; return; }
-      const spanned = span > 1;
-      const primaryDate = dates[run.startIdx];
-      const chipLabel = spanned
-        ? `${DAY_LABELS[DAYS[run.startIdx]].slice(0,3)}–${DAY_LABELS[DAYS[run.endIdx]].slice(0,3)}`
-        : 'You';
-      html += `<td ${spanned?`colspan="${span}"`:''} class="${spanned?'spanned-cell':''}"><div class="chipwrap">
-        <button class="ywd-chip" style="background:${pColor.bg}; color:${pColor.fg};" data-date="${primaryDate}" data-task="${task.id}">${chipLabel}</button>
-      </div></td>`;
+  html += '</tr></thead><tbody><tr><td></td>';
+  dates.forEach(dISO=>{
+    const dayTasks = myTasks.filter(t=> ((schedule[dISO]||{})[t.id]||[]).includes(me.id));
+    html += `<td><div class="chipwrap">`;
+    dayTasks.forEach(t=>{
+      const tColor = colorForTask(t.id);
+      html += `<button class="ywd-chip" style="background:${tColor.bg}; color:${tColor.fg};" data-date="${dISO}" data-task="${t.id}">${escHtml(t.name)}</button>`;
     });
-    html += '</tr>';
+    html += `</div></td>`;
   });
-  html += '</tbody></table>';
+  html += '</tr></tbody></table>';
   return html;
 }
 function attachYourWeekClicks(wrap, gridSelector){
@@ -4103,6 +4262,7 @@ function buildExportPayload(){
   return {
     exportedAt: new Date().toISOString(),
     teams: state.teams,
+    departments: state.departments,
     members: state.members,
     tasksByTeam: state.tasksByTeam,
     reqByTeam: state.reqByTeam,
@@ -4155,6 +4315,7 @@ document.getElementById('btn-import').addEventListener('click', async ()=>{
   try{ data = JSON.parse(raw); }
   catch(e){ showToast("That doesn't look like valid backup JSON"); return; }
   state.teams = data.teams || state.teams;
+  state.departments = data.departments || state.departments || [];
   state.members = data.members || state.members;
   state.tasksByTeam = data.tasksByTeam || state.tasksByTeam;
   state.reqByTeam = data.reqByTeam || state.reqByTeam;
@@ -4164,6 +4325,7 @@ document.getElementById('btn-import').addEventListener('click', async ()=>{
   if(!state.teams.some(t=>t.id===currentTeamId)) currentTeamId = state.teams[0].id;
   balanceCache = null;
   await safeSet('teams', state.teams, true);
+  await safeSet('departments', state.departments, true);
   await persistMembers();
   await persistHolidays();
   for(const team of state.teams){
@@ -4227,6 +4389,8 @@ async function bindIdentityToMember(info){
       id, name: info.name || info.email,
       levels: [],
       isAdmin: !!(info.bootstrap || info.owner),
+      role: (info.bootstrap || info.owner) ? 'admin' : null,
+      managerDeptId: null,
       teamId: (info.bootstrap || info.owner) ? (state.teams[0]?.id || null) : null,
       eligibility: elig([])
     };
@@ -4239,6 +4403,7 @@ async function bindIdentityToMember(info){
     await ensureInManagersList(info.uid);
     let changed = false;
     if(!m.isAdmin){ m.isAdmin = true; changed = true; }
+    if(m.role!=='admin'){ m.role = 'admin'; changed = true; }
     if(!m.teamId || !state.teams.some(t=>t.id===m.teamId)){ m.teamId = state.teams[0]?.id || null; changed = true; }
     if(changed) await persistMembers();
     await saveContact(m.id, info.email, info.uid);
@@ -4247,8 +4412,15 @@ async function bindIdentityToMember(info){
   currentAuthUid = info.uid;
   document.getElementById('viewer-identity-name').textContent = m.name;
   currentTeamId = m.teamId;
+  if(m.role==='manager' && m.managerDeptId){
+    const ownTeam = state.teams.find(t=>t.id===m.teamId);
+    if(!ownTeam || ownTeam.departmentId !== m.managerDeptId){
+      const deptTeams = state.teams.filter(t=>t.departmentId===m.managerDeptId);
+      if(deptTeams.length>0) currentTeamId = deptTeams[0].id;
+    }
+  }
   balanceCache = null;
-  const mode = m.isAdmin ? 'admin' : 'viewer';
+  const mode = (m.isAdmin || m.role==='manager') ? 'admin' : 'viewer';
   setMode(mode);
 }
 
