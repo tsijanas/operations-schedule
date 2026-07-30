@@ -391,6 +391,13 @@
   .idea-row-priority-pick{ display:flex; align-items:center; gap:8px; }
   .idea-row-priority-pick label{ font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.03em; }
   .idea-row-priority-pick select{ width:auto; font-size:12px; padding:5px 9px; }
+  .grand-sched-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .grand-sched-table th{ background:var(--gold-soft); padding:8px; text-align:center; font-weight:700; }
+  .grand-sched-table td{ padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .gs-team-row td:first-child{ font-size:11px; font-weight:700; text-transform:uppercase; border-radius:6px; padding:6px 10px; vertical-align:middle; text-align:center; }
+  .pool-task-row{ display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px dashed var(--line); border-radius:10px; margin-bottom:8px; background:var(--paper); }
+  .pool-task-row .pt-name{ font-weight:600; font-size:13px; flex:1; }
+  .pool-task-row .pt-source{ font-size:10.5px; color:var(--ink-faint); }
   .idea-drag-handle{ cursor:grab; color:var(--ink-faint); font-size:13px; flex-shrink:0; }
   .idea-group.drag-over{ box-shadow:0 0 0 2px var(--gold) inset; border-radius:10px; }
   .idea-row.idea-dragging{ opacity:0.4; }
@@ -521,6 +528,7 @@
 
     <div class="sidebar-panel">
       <button class="nav-item admin-only active" data-tab="schedule">Schedule</button>
+      <button class="nav-item admin-only" data-tab="grand" id="nav-grand" style="display:none;">Grand Schedule</button>
       <button class="nav-item admin-only" data-tab="org">Teams &amp; People</button>
       <button class="nav-item admin-only" data-tab="tasks">Tasks</button>
       <button class="nav-item admin-only" data-tab="requirements">Weekly needs</button>
@@ -583,6 +591,11 @@
         <h1>Tasks</h1>
         <p>The conditions each task runs under — who's allowed to do it, and whether it can't be combined with another task on the same day.</p>
       </div>
+      <div class="card" id="task-pool-card" style="display:none;">
+        <h3>Available from other teams</h3>
+        <div class="hint">Created by another team in this department. Adding one copies its rules (level restriction, exclusions, same-week setting) into this team's own tasks — it becomes independent from here, so editing it afterward only affects this team.</div>
+        <div id="task-pool-wrap"></div>
+      </div>
       <div class="card" id="tasks-card">
         <div class="row" style="margin-bottom:6px;">
           <button class="btn secondary small" id="btn-add-task">+ Add task</button>
@@ -605,12 +618,6 @@
       <div class="card" style="overflow-x:auto;">
         <div class="row" style="margin-bottom:10px;"><div class="spacer"></div><button class="btn small" id="btn-save-req">Save changes</button></div>
         <div id="req-table-wrap"></div>
-      </div>
-      <div class="card" style="overflow-x:auto;">
-        <h3>Grand requirement <span class="muted" style="font-weight:400; font-size:12px;">— across all teams</span></h3>
-        <div class="hint">Set one department-wide total per task, per day — it splits across your teams automatically, proportional to each team's headcount. Matches tasks by name across teams, since each team's tasks aren't formally linked yet. Nothing changes on any team's own Weekly Needs until you click Apply.</div>
-        <div id="grand-req-wrap"></div>
-        <div class="row" style="margin-top:14px;"><div class="spacer"></div><button class="btn small" id="btn-apply-grand-req">Apply to teams</button></div>
       </div>
     </div>
 
@@ -640,6 +647,35 @@
       <div class="card" style="overflow-x:auto;">
         <h3>Week grid</h3>
         <div id="sched-grid-wrap"></div>
+      </div>
+    </div>
+
+    <!-- GRAND SCHEDULE TAB -->
+    <div class="tab-panel" id="tab-grand">
+      <div class="page-head">
+        <h1>Grand Schedule</h1>
+        <p id="grand-dept-name">Combined view across every team in this department.</p>
+      </div>
+      <div class="card">
+        <div class="row">
+          <div class="week-nav">
+            <button id="grand-wk-prev">‹</button>
+            <span id="grand-week-label"></span>
+            <button id="grand-wk-next">›</button>
+          </div>
+          <div class="spacer"></div>
+        </div>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <h3>Grand schedule</h3>
+        <div class="hint">Every team in this department, stacked together, for the week above. This is the real schedule each team already has — read-only here for now; edit it from each team's own Schedule tab.</div>
+        <div id="grand-sched-wrap"></div>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <h3>Grand requirement</h3>
+        <div class="hint">Set one department-wide total per task, per day — it splits across your teams automatically, proportional to each team's headcount. Matches tasks by name across teams, since each team's tasks aren't formally linked yet. Nothing changes on any team's own Weekly Needs until you click Apply.</div>
+        <div id="grand-req-wrap"></div>
+        <div class="row" style="margin-top:14px;"><div class="spacer"></div><button class="btn small" id="btn-apply-grand-req">Apply to teams</button></div>
       </div>
     </div>
 
@@ -1939,6 +1975,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
     if(btn.dataset.tab==='holidays') renderHolidaysTab();
     if(btn.dataset.tab==='data'){ renderAuditLog(); renderDeptSetupCard(); }
     if(btn.dataset.tab==='ideas') renderIdeasTab();
+    if(btn.dataset.tab==='grand') renderGrandTab();
   });
 });
 
@@ -2627,6 +2664,8 @@ function teamsInDepartment(deptId){
   return state.teams.filter(t=>t.departmentId===deptId);
 }
 function renderTeamSwitcher(){
+  const navGrand = document.getElementById('nav-grand');
+  if(navGrand) navGrand.style.display = state.departments.length>0 ? '' : 'none';
   const deptWrap = document.getElementById('dept-switcher-wrap');
   const deptSel = document.getElementById('dept-switch-select');
   const deptLabel = document.getElementById('dept-switch-label');
@@ -2959,7 +2998,65 @@ async function renderUnassignedList(){
 }
 
 // ================= TASKS TAB =================
+// A task from a sibling team in the same department, not yet on this team — "clone on
+// adopt," not a true shared reference (see the card's own hint text). Matches by name since
+// each team's task list is still its own independent array, same limitation Grand
+// Requirement already has.
+function renderTaskPoolCard(){
+  const card = document.getElementById('task-pool-card');
+  const wrap = document.getElementById('task-pool-wrap');
+  if(!card || !wrap) return;
+  const myTeam = state.teams.find(t=>t.id===currentTeamId);
+  if(!myTeam || !myTeam.departmentId){ card.style.display = 'none'; return; }
+  const myTaskNames = new Set((state.tasksByTeam[currentTeamId]||[]).map(t=>(t.name||'').trim().toLowerCase()));
+  const siblingTeams = teamsInDepartment(myTeam.departmentId).filter(t=>t.id!==currentTeamId);
+  const pool = []; // {task, fromTeamName}, deduped by name — first sibling team found wins the attribution
+  const seen = new Set();
+  siblingTeams.forEach(team=>{
+    (state.tasksByTeam[team.id]||[]).forEach(task=>{
+      const key = (task.name||'').trim().toLowerCase();
+      if(!key || myTaskNames.has(key) || seen.has(key)) return;
+      seen.add(key);
+      pool.push({ task, fromTeamName: team.name });
+    });
+  });
+  if(pool.length===0){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  wrap.innerHTML = pool.map(({task, fromTeamName})=>{
+    const levelSummary = (task.levels&&task.levels.length) ? task.levels.join('/') : 'open to all levels';
+    return `<div class="pool-task-row">
+      <span class="pt-name">${escHtml(task.name)}</span>
+      <span class="pt-source">from ${escHtml(fromTeamName)} — ${escHtml(levelSummary)}${task.sameAllWeek?' — same person all week':''}</span>
+      <button class="btn small btn-adopt-task" data-name="${escAttr(task.name)}">+ Add to this team</button>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.btn-adopt-task').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const entry = pool.find(p=>p.task.name===btn.dataset.name);
+      if(!entry) return;
+      const source = entry.task;
+      const newTask = {
+        id: 'task_'+Math.random().toString(36).slice(2,9),
+        name: source.name,
+        levels: [...(source.levels||[])],
+        excludes: null, // can't safely carry over — it would point at a task id foreign to this team
+        sameAllWeek: !!source.sameAllWeek,
+        notes: source.notes || ''
+      };
+      state.tasksByTeam[currentTeamId] = state.tasksByTeam[currentTeamId] || [];
+      state.tasksByTeam[currentTeamId].push(newTask);
+      addTaskColumnToTeamTable(newTask);
+      addTaskRowToReqTable(newTask);
+      safeSet('tasks_'+currentTeamId, state.tasksByTeam[currentTeamId]);
+      logAudit('task.adopt_from_pool', { name: newTask.name, fromTeam: entry.fromTeamName });
+      showToast(`Added "${newTask.name}" to this team`);
+      renderTasksTab();
+      renderReqTab();
+    });
+  });
+}
 function renderTasksTab(){
+  renderTaskPoolCard();
   const wrap = document.getElementById('tasks-list');
   let html='';
   state.tasks.forEach((t,ti)=>{
@@ -3325,10 +3422,13 @@ function splitProportional(total, weights){
   for(let i=0;i<remainder && order.length>0;i++){ order[i % order.length].value++; }
   return floors;
 }
-function grandTaskGroups(){
-  // { lowercasedName: { displayName, perTeam: [{team, task}] } }
+function grandTaskGroups(deptId){
+  // { lowercasedName: { displayName, perTeam: [{team, task}] } } — scoped to one department's
+  // teams. Tasks are matched by name across teams since each team's task list is still its
+  // own independent array, not a shared catalog yet.
   const groups = {};
-  state.teams.forEach(team=>{
+  const teams = teamsInDepartment(deptId);
+  teams.forEach(team=>{
     (state.tasksByTeam[team.id]||[]).forEach(task=>{
       const key = (task.name||'').trim().toLowerCase();
       if(!key) return;
@@ -3338,25 +3438,32 @@ function grandTaskGroups(){
   });
   return groups;
 }
-function renderGrandReqTab(){
+let grandReqTotals = {}; // loaded from storage for the current department — the actual fix for the reset-to-0 bug
+async function renderGrandReqTab(){
   const wrap = document.getElementById('grand-req-wrap');
-  if(!wrap) return;
-  const groups = grandTaskGroups();
+  if(!wrap || !currentDepartmentId) return;
+  const groups = grandTaskGroups(currentDepartmentId);
   const names = Object.keys(groups).sort();
-  if(names.length===0 || state.teams.length<2){
-    wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Needs at least two teams with matching task names to make sense of a department-wide split.</div>`;
+  if(names.length===0){
+    wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">No shared task names yet in this department's teams.</div>`;
     return;
   }
+  try{
+    const saved = await window.storage.get('grand_req_'+currentDepartmentId, true);
+    grandReqTotals = saved ? JSON.parse(saved.value) : {};
+  }catch(e){ grandReqTotals = {}; }
+
   const teamSizes = {};
-  state.teams.forEach(t=> teamSizes[t.id] = state.members.filter(m=>m.teamId===t.id).length);
+  teamsInDepartment(currentDepartmentId).forEach(t=> teamSizes[t.id] = state.members.filter(m=>m.teamId===t.id).length);
 
   let html = '<table class="req-table"><thead><tr><th style="text-align:left;">Task</th>';
   DAYS.forEach(d=> html+=`<th>${DAY_LABELS[d]}</th>`);
   html += '</tr></thead><tbody>';
   names.forEach(key=>{
     const g = groups[key];
+    const savedRow = grandReqTotals[key] || {};
     html += `<tr data-gkey="${escAttr(key)}"><td style="font-weight:600; text-align:left;">${escHtml(g.displayName)}<div class="muted" style="font-size:10.5px; font-weight:400;">on ${g.perTeam.length} team${g.perTeam.length===1?'':'s'}</div></td>`;
-    DAYS.forEach(d=> html += `<td><input type="number" min="0" class="grand-req-input" data-day="${d}" value="0"></td>`);
+    DAYS.forEach(d=> html += `<td><input type="number" min="0" class="grand-req-input" data-day="${d}" value="${savedRow[d]||0}"></td>`);
     html += `</tr>`;
     html += `<tr class="grand-req-preview" data-gkey-preview="${escAttr(key)}">`;
     html += `<td class="muted" style="font-size:10.5px; text-align:left;">split preview</td>`;
@@ -3389,19 +3496,22 @@ function renderGrandReqTab(){
 document.getElementById('btn-apply-grand-req').addEventListener('click', async ()=>{
   const wrap = document.getElementById('grand-req-wrap');
   const rows = Array.from(wrap.querySelectorAll('tr[data-gkey]'));
-  if(rows.length===0) return;
-  const groups = grandTaskGroups();
+  if(rows.length===0 || !currentDepartmentId) return;
+  const groups = grandTaskGroups(currentDepartmentId);
   const teamSizes = {};
-  state.teams.forEach(t=> teamSizes[t.id] = state.members.filter(m=>m.teamId===t.id).length);
+  teamsInDepartment(currentDepartmentId).forEach(t=> teamSizes[t.id] = state.members.filter(m=>m.teamId===t.id).length);
 
   askConfirm(`Apply the grand requirement to every team's own Weekly Needs? This overwrites each matching task's numbers on every affected team — any hand-adjustments made there will be replaced.`, 'Apply', async ()=>{
     const touchedTeamIds = new Set();
+    const newTotals = {};
     rows.forEach(row=>{
       const key = row.dataset.gkey;
       const g = groups[key];
       const weights = g.perTeam.map(pt=>({ key:pt.team.id, weight: teamSizes[pt.team.id]||0 }));
+      newTotals[key] = {};
       DAYS.forEach(d=>{
         const total = +row.querySelector(`[data-day="${d}"]`).value || 0;
+        newTotals[key][d] = total;
         const split = splitProportional(total, weights);
         split.forEach(s=>{
           const pt = g.perTeam.find(x=>x.team.id===s.key);
@@ -3416,14 +3526,76 @@ document.getElementById('btn-apply-grand-req').addEventListener('click', async (
     for(const teamId of touchedTeamIds){
       await safeSet('weekly_req_'+teamId, state.reqByTeam[teamId], true);
     }
+    grandReqTotals = newTotals;
+    await safeSet('grand_req_'+currentDepartmentId, grandReqTotals, true); // the actual fix — this is what makes it stick instead of resetting to 0
     if(touchedTeamIds.has(currentTeamId)) state.req = state.reqByTeam[currentTeamId];
-    showToast(`Applied to ${touchedTeamIds.size} team${touchedTeamIds.size===1?'':'s'}`);
-    logAudit('requirement.grand_apply', { teams: touchedTeamIds.size, tasks: rows.length });
+    showToast(`Applied to ${touchedTeamIds.size} team${touchedTeamIds.size===1?'':'s'} — numbers saved here too`);
+    logAudit('requirement.grand_apply', { department: currentDepartmentId, teams: touchedTeamIds.size, tasks: rows.length });
     renderReqTab();
   });
 });
 
-// ================= SCHEDULING ENGINE =================
+// ================= GRAND SCHEDULE TAB =================
+// Loads a specific team's schedule directly, independent of the currentTeamId-scoped cache
+// the rest of the app uses — Grand Schedule needs several teams' schedules at once, not just
+// whichever one is currently selected in the sidebar.
+async function loadWeekForTeam(teamId, weekISO){
+  try{
+    const r = await window.storage.get('schedule_'+teamId+'_'+weekISO, true);
+    return r ? JSON.parse(r.value) : {};
+  }catch(e){ return {}; }
+}
+let grandWeekMonday = null;
+async function renderGrandTab(){
+  if(!currentDepartmentId) return;
+  if(!grandWeekMonday) grandWeekMonday = new Date(currentWeekMonday);
+  const dept = state.departments.find(d=>d.id===currentDepartmentId);
+  document.getElementById('grand-dept-name').textContent = dept ? `Combined view across every team in ${escHtml(dept.name)}.` : 'Combined view across every team in this department.';
+  document.getElementById('grand-week-label').textContent = fmtWeek(grandWeekMonday);
+  await renderGrandScheduleGrid();
+  await renderGrandReqTab();
+}
+document.getElementById('grand-wk-prev').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,-7); renderGrandTab(); });
+document.getElementById('grand-wk-next').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,7); renderGrandTab(); });
+
+async function renderGrandScheduleGrid(){
+  const wrap = document.getElementById('grand-sched-wrap');
+  if(!wrap || !currentDepartmentId) return;
+  wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Loading…</div>`;
+  const teams = teamsInDepartment(currentDepartmentId);
+  if(teams.length===0){ wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">No teams in this department yet.</div>`; return; }
+
+  const dates = DAYS.map((d,i)=> iso(addDays(grandWeekMonday,i)));
+
+  // One fetch per team per week (schedule docs are stored per week, not per day), then read
+  // each day out of that single object.
+  let html = '<table class="grand-sched-table"><thead><tr><th style="text-align:left;">Team</th><th style="text-align:left;">Task</th>';
+  DAYS.forEach(d=> html += `<th>${DAY_LABELS[d]}</th>`);
+  html += '</tr></thead><tbody>';
+  const weekISO = iso(grandWeekMonday);
+  for(const team of teams){
+    const sched = await loadWeekForTeam(team.id, weekISO);
+    const tasks = state.tasksByTeam[team.id] || [];
+    const tc = colorForTeam(team.id);
+    if(tasks.length===0){
+      html += `<tr class="gs-team-row"><td style="background:${tc.bg}; color:${tc.fg};">${escHtml(team.name)}</td><td colspan="8" class="muted">No tasks set up for this team.</td></tr>`;
+      continue;
+    }
+    tasks.forEach((task, i)=>{
+      html += `<tr class="gs-team-row">`;
+      html += i===0 ? `<td style="background:${tc.bg}; color:${tc.fg};" rowspan="${tasks.length}">${escHtml(team.name)}</td>` : '';
+      html += `<td style="font-weight:600;">${escHtml(task.name)}</td>`;
+      dates.forEach(dISO=>{
+        const ids = ((sched[dISO]||{})[task.id]) || [];
+        const names = ids.map(id=> state.members.find(m=>m.id===id)?.name || '?');
+        html += `<td>${names.length ? names.map(n=>`<span class="idea-row-title" style="display:block; font-size:11px; font-weight:600;">${escHtml(n)}</span>`).join('') : '<span class="muted" style="font-size:11px;">—</span>'}</td>`;
+      });
+      html += `</tr>`;
+    });
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
 // sort() with a random comparator is a well-known trap — it's biased, not a real shuffle,
 // because sort algorithms don't call the comparator evenly across all pairs. To actually
 // randomize fairly, sort deterministically first, then Fisher-Yates shuffle within each
