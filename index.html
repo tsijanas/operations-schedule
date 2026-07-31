@@ -3597,6 +3597,15 @@ async function readWithBorrowedTeamContext(teamId, weekMonday, fn){
     currentSchedule = realSchedule;
   }
 }
+// Loads a specific team's schedule directly, independent of the currentTeamId-scoped cache
+// the rest of the app uses — this needs several teams' schedules at once, not just whichever
+// one happens to be selected in the sidebar, and shouldn't pollute that cache for other teams.
+async function loadWeekForTeam(teamId, weekISO){
+  try{
+    const r = await window.storage.get('schedule_'+teamId+'_'+weekISO, true);
+    return r ? JSON.parse(r.value) : {};
+  }catch(e){ return {}; }
+}
 async function renderGrandScheduleGrid(){
   const wrap = document.getElementById('grand-sched-wrap');
   if(!wrap || !currentDepartmentId) return;
