@@ -533,20 +533,22 @@
       </div>
     </div>
 
+    <div class="sidebar-panel admin-only" id="grand-nav-box" style="display:none;">
+      <div class="sidebar-section-label">Department-wide</div>
+      <button class="nav-item admin-only" data-tab="grand" id="nav-grand">Grand Schedule</button>
+      <button class="nav-item admin-only" data-tab="grand-req" id="nav-grand-req">Grand Requirement</button>
+      <button class="nav-item admin-only" data-tab="grand-balance" id="nav-grand-balance">Grand Rotation Balance</button>
+    </div>
+
     <div class="sidebar-panel">
       <button class="nav-item admin-only active" data-tab="schedule">Schedule</button>
       <button class="nav-item admin-only" data-tab="org">Teams &amp; People</button>
       <button class="nav-item admin-only" data-tab="tasks">Tasks</button>
-      <button class="nav-item admin-only" data-tab="requirements">Weekly needs</button>
+      <button class="nav-item admin-only" data-tab="requirements">Requirement</button>
       <button class="nav-item admin-only" data-tab="holidays">Holidays</button>
 
       <button class="nav-item viewer-only active" data-tab="myschedule">My schedule</button>
       <button class="nav-item viewer-only" data-tab="myholidays">My holidays</button>
-    </div>
-
-    <div class="sidebar-panel admin-only" id="grand-nav-box" style="display:none;">
-      <div class="sidebar-section-label">Department-wide</div>
-      <button class="nav-item admin-only" data-tab="grand" id="nav-grand">Grand Schedule</button>
     </div>
 
     <div class="sidebar-panel admin-only">
@@ -641,7 +643,7 @@
     <!-- REQUIREMENTS TAB -->
     <div class="tab-panel" id="tab-requirements">
       <div class="page-head">
-        <h1>Weekly needs</h1>
+        <h1>Requirement</h1>
         <p>How many people each task needs, per weekday. This is what the scheduler tries to fill.</p>
       </div>
       <div class="card" style="overflow-x:auto;">
@@ -696,15 +698,29 @@
         </div>
       </div>
       <div class="card" style="overflow-x:auto;">
-        <h3>Grand schedule</h3>
         <div class="hint">Every team in this department, stacked together, for the week above — click any name or the + to add, replace, or remove someone, exactly like a normal team's Schedule tab. Changes here are the same real data each team sees in their own Schedule tab, not a copy.</div>
         <div id="grand-sched-wrap"></div>
       </div>
+    </div>
+
+    <!-- GRAND REQUIREMENT TAB -->
+    <div class="tab-panel" id="tab-grand-req">
+      <div class="page-head">
+        <h1>Grand Requirement</h1>
+        <p id="grand-req-dept-name">Combined view across every team in this department.</p>
+      </div>
       <div class="card" style="overflow-x:auto;">
-        <h3>Grand requirement</h3>
-        <div class="hint">Set one department-wide total per task, per day — it splits across your teams automatically, proportional to each team's headcount. Matches tasks by name across teams, since each team's tasks aren't formally linked yet. Nothing changes on any team's own Weekly Needs until you click Apply.</div>
+        <div class="hint">Set one department-wide total per task, per day — it splits across your teams automatically, proportional to each team's headcount. Matches tasks by name across teams, since each team's tasks aren't formally linked yet. Nothing changes on any team's own Requirement until you click Apply.</div>
         <div id="grand-req-wrap"></div>
         <div class="row" style="margin-top:14px;"><div class="spacer"></div><button class="btn small" id="btn-apply-grand-req">Apply to teams</button></div>
+      </div>
+    </div>
+
+    <!-- GRAND ROTATION BALANCE TAB -->
+    <div class="tab-panel" id="tab-grand-balance">
+      <div class="page-head">
+        <h1>Grand Rotation Balance</h1>
+        <p id="grand-balance-dept-name">Combined view across every team in this department.</p>
       </div>
       <div id="grand-balance-wrap"></div>
     </div>
@@ -2006,6 +2022,8 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
     if(btn.dataset.tab==='data'){ renderAuditLog(); renderDeptSetupCard(); }
     if(btn.dataset.tab==='ideas') renderIdeasTab();
     if(btn.dataset.tab==='grand') renderGrandTab();
+    if(btn.dataset.tab==='grand-req') renderGrandReqPageTab();
+    if(btn.dataset.tab==='grand-balance') renderGrandBalancePageTab();
   });
 });
 
@@ -3704,16 +3722,21 @@ async function renderGrandBalanceTab(){
 
 // ================= GRAND SCHEDULE TAB =================
 let grandWeekMonday = null;
-async function renderGrandTab(){
+function ensureDepartmentSelected(){
   if(!currentDepartmentId) currentDepartmentId = state.departments[0]?.id || null;
-  if(!currentDepartmentId){
+  return currentDepartmentId;
+}
+function departmentNameLine(){
+  const dept = state.departments.find(d=>d.id===currentDepartmentId);
+  return dept ? `Combined view across every team in ${escHtml(dept.name)}.` : 'Combined view across every team in this department.';
+}
+async function renderGrandTab(){
+  if(!ensureDepartmentSelected()){
     document.getElementById('grand-sched-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">No department is set up yet — see Data → "Set up a department."</div>`;
-    document.getElementById('grand-req-wrap').innerHTML = '';
     return;
   }
   if(!grandWeekMonday) grandWeekMonday = new Date(currentWeekMonday);
-  const dept = state.departments.find(d=>d.id===currentDepartmentId);
-  document.getElementById('grand-dept-name').textContent = dept ? `Combined view across every team in ${escHtml(dept.name)}.` : 'Combined view across every team in this department.';
+  document.getElementById('grand-dept-name').textContent = departmentNameLine();
   document.getElementById('grand-week-label').textContent = fmtWeek(grandWeekMonday);
   try{
     await renderGrandScheduleGrid();
@@ -3721,12 +3744,26 @@ async function renderGrandTab(){
     console.error('Grand Schedule failed to render', e);
     document.getElementById('grand-sched-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">Couldn't load this — ${escHtml(e.message||String(e))}. Try Refresh, or a different week.</div>`;
   }
+}
+async function renderGrandReqPageTab(){
+  if(!ensureDepartmentSelected()){
+    document.getElementById('grand-req-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">No department is set up yet — see Data → "Set up a department."</div>`;
+    return;
+  }
+  document.getElementById('grand-req-dept-name').textContent = departmentNameLine();
   try{
     await renderGrandReqTab();
   }catch(e){
     console.error('Grand Requirement failed to render', e);
     document.getElementById('grand-req-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">Couldn't load this — ${escHtml(e.message||String(e))}.</div>`;
   }
+}
+async function renderGrandBalancePageTab(){
+  if(!ensureDepartmentSelected()){
+    document.getElementById('grand-balance-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">No department is set up yet — see Data → "Set up a department."</div>`;
+    return;
+  }
+  document.getElementById('grand-balance-dept-name').textContent = departmentNameLine();
   try{
     await renderGrandBalanceTab();
   }catch(e){
@@ -3809,21 +3846,51 @@ async function renderGrandScheduleGrid(){
   for(const key of names){
     const g = groups[key];
     html += `<tr><td class="taskname" title="${escAttr(g.displayName)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(g.displayName)}</span></div></td>`;
-    for(let di=0; di<dates.length; di++){
-      const dISO = dates[di];
-      const dayKey = DAYS[di];
+
+    // Same-person-all-week only merges into one wide cell if EVERY contributing team has that
+    // task set to same-all-week — if even one team hasn't opted into it, this row stays as
+    // separate per-day cells, since "connecting" a team that never asked for that would be
+    // presenting something as true that isn't.
+    const allSameAllWeek = g.perTeam.length>0 && g.perTeam.every(({task})=>task.sameAllWeek);
+    let runs = [];
+    if(allSameAllWeek){
+      let i = 0;
+      while(i < dates.length){
+        const neededHere = !isBankHoliday(dates[i]) && g.perTeam.some(({team,task})=> ((state.reqByTeam[team.id]?.[task.id]||{})[DAYS[i]]||0) > 0);
+        let j = i;
+        if(neededHere){
+          while(j+1 < dates.length){
+            const nextNeeded = !isBankHoliday(dates[j+1]) && g.perTeam.some(({team,task})=> ((state.reqByTeam[team.id]?.[task.id]||{})[DAYS[j+1]]||0) > 0);
+            if(nextNeeded) j++; else break;
+          }
+        }
+        runs.push({startIdx:i, endIdx:j});
+        i = j+1;
+      }
+    } else {
+      dates.forEach((d,i)=> runs.push({startIdx:i, endIdx:i}));
+    }
+
+    for(const run of runs){
+      const span = run.endIdx - run.startIdx + 1;
+      const spanned = span > 1;
+      const primaryDate = dates[run.startIdx];
+      const primaryDayKey = DAYS[run.startIdx];
+      const runDates = dates.slice(run.startIdx, run.endIdx+1);
       let totalNeed = 0;
       let bars = '';
       g.perTeam.forEach(({team, task})=>{
-        const need = isBankHoliday(dISO) ? 0 : ((state.reqByTeam[team.id]?.[task.id]||{})[dayKey] || 0);
+        const need = isBankHoliday(primaryDate) ? 0 : ((state.reqByTeam[team.id]?.[task.id]||{})[primaryDayKey] || 0);
         totalNeed += need;
-        const assigned = ((teamData[team.id].sched[dISO]||{})[task.id]) || [];
+        const assigned = ((teamData[team.id].sched[primaryDate]||{})[task.id]) || [];
         const tc = colorForTeam(team.id);
         assigned.forEach(mid=>{
           const pColor = colorForMember(mid);
-          bars += `<div class="bar-item" data-team="${team.id}" data-task="${task.id}" data-dates="${dISO}">
-            <button class="bar" data-mid="${mid}" style="background:${pColor.bg}; color:${pColor.fg};" title="Click to see options">
-              <span class="bar-name"><span class="team-dot" style="background:${tc.bg}; border-color:${tc.fg==='#EDFFE9'?'rgba(255,255,255,0.6)':'rgba(0,0,0,0.2)'};" title="${escAttr(team.name)}"></span><span class="bar-name-text">${memberName(mid)}</span></span>
+          const overlay = pColor.fg==='#EDFFE9' ? 'rgba(255,255,255,0.18)' : 'rgba(0,70,84,0.12)';
+          const isSick = ((state.holidayReasons[mid]||{})[primaryDate]) === 'sick';
+          bars += `<div class="bar-item" data-team="${team.id}" data-task="${task.id}" data-dates="${runDates.join(',')}">
+            <button class="bar ${isSick?'needs-replace':''}" data-mid="${mid}" style="background:${pColor.bg}; color:${pColor.fg};" title="${isSick?'Out of office — consider replacing':'Click to see options'}">
+              <span class="bar-name">${isSick?'<span class="sick-badge" style="background:'+overlay+';">!</span> ':''}<span class="team-dot" style="background:${tc.bg}; border-color:${tc.fg==='#EDFFE9'?'rgba(255,255,255,0.6)':'rgba(0,0,0,0.2)'};" title="${escAttr(team.name)}"></span><span class="bar-name-text">${memberName(mid)}</span></span>
             </button>
             <div class="bar-menu" data-mid="${mid}" style="background:color-mix(in srgb, ${pColor.bg} 45%, white); color:${pColor.fg==='#EDFFE9'?'var(--ink)':pColor.fg};">
               <button class="bar-menu-item" data-action="delete">Delete</button>
@@ -3833,23 +3900,26 @@ async function renderGrandScheduleGrid(){
           </div>`;
         });
       });
-      const totalAssigned = g.perTeam.reduce((s,{team,task})=> s + (((teamData[team.id].sched[dISO]||{})[task.id])||[]).length, 0);
+      const totalAssigned = g.perTeam.reduce((s,{team,task})=> s + (((teamData[team.id].sched[primaryDate]||{})[task.id])||[]).length, 0);
       const shortfall = totalNeed - totalAssigned;
 
       let combinedOptions = [];
       for(const {team, task} of g.perTeam){
-        const assigned = ((teamData[team.id].sched[dISO]||{})[task.id]) || [];
-        const opts = await readWithBorrowedTeamContext(team.id, grandWeekMonday, async ()=> eligibleMembersForRun(task.id, [dISO], assigned));
+        const assigned = ((teamData[team.id].sched[primaryDate]||{})[task.id]) || [];
+        const opts = await readWithBorrowedTeamContext(team.id, grandWeekMonday, async ()=> eligibleMembersForRun(task.id, runDates, assigned));
         opts.forEach(m=> combinedOptions.push({ member:m, team, task }));
       }
       const showTeamInLabel = g.perTeam.length>1;
-      const addSelectHtml = `<div class="add-select" data-dates="${dISO}">
+      const addSelectHtml = `<div class="add-select" data-dates="${runDates.join(',')}">
         <select data-add="1"><option value="" data-hidden-opt="1">+</option>${combinedOptions.map(o=>`<option value="${o.team.id}::${o.task.id}::${o.member.id}">${escHtml(o.member.name)} (${(o.member.levels||[]).join('/')})${showTeamInLabel?' — '+escHtml(o.team.name):''}</option>`).join('')}</select>
       </div>`;
-      html += `<td>
+      let notice = '';
+      if(spanned) notice = `<div class="cell-daterange">${DAY_LABELS[DAYS[run.startIdx]].slice(0,3)}–${DAY_LABELS[DAYS[run.endIdx]].slice(0,3)}</div>`;
+      else if(shortfall>0) notice = `<div class="cell-shortfall" title="${totalAssigned} of ${totalNeed} filled">needs +${shortfall}</div>`;
+      html += `<td ${spanned?`colspan="${span}"`:''}>
         <div class="cell-inner">
         <div class="chipwrap">${bars}</div>
-        <div class="cell-notice">${shortfall>0?`<div class="cell-shortfall" title="${totalAssigned} of ${totalNeed} filled">needs +${shortfall}</div>`:''}</div>
+        <div class="cell-notice">${notice}</div>
         ${addSelectHtml}
         </div>
       </td>`;
@@ -4451,14 +4521,47 @@ async function nextInLineAcrossDates(taskId, dateISOs, excludeIds, schedule){
 // Reuses exactly the same "who's next in line" logic as the manual Replace button — this just
 // triggers it automatically, for every task the person was already on, across however many
 // weeks the marked dates span (not just whichever week happens to be on screen right now).
+// Last-resort cross-team coverage for OOO auto-replace: if nobody on the person's own team can
+// cover it, and this task is genuinely shared (by name) with another team in the same
+// department, check whether any of those sibling teams has someone eligible and free — and if
+// several do, picks whoever's most under-scheduled for it, same fairness rule as everywhere
+// else. Returns {team, task, member} or null. Read-only — the caller decides whether to act on it.
+async function findCrossTeamCoverage(originTeamId, taskName, dISO, excludeMemberId){
+  const originTeam = state.teams.find(t=>t.id===originTeamId);
+  if(!originTeam || !originTeam.departmentId) return null;
+  const siblingTeams = teamsInDepartment(originTeam.departmentId).filter(t=>t.id!==originTeamId);
+  if(siblingTeams.length===0) return null;
+  const wMonday = mondayOf(new Date(dISO+'T00:00:00'));
+  const candidates = [];
+  for(const team of siblingTeams){
+    const matchingTask = (state.tasksByTeam[team.id]||[]).find(t=> (t.name||'').trim().toLowerCase() === taskName.trim().toLowerCase());
+    if(!matchingTask) continue;
+    const teamBalance = await computeBalanceForTeam(team.id);
+    const opts = await readWithBorrowedTeamContext(team.id, wMonday, async ()=>{
+      const already = ((currentSchedule[dISO]||{})[matchingTask.id]) || [];
+      return eligibleMembersForRun(matchingTask.id, [dISO], already);
+    });
+    opts.forEach(m=>{
+      if(m.id===excludeMemberId) return;
+      const v = (teamBalance[m.id]&&teamBalance[m.id][matchingTask.id]) || 0;
+      candidates.push({ team, task:matchingTask, member:m, v });
+    });
+  }
+  if(candidates.length===0) return null;
+  candidates.sort((a,b)=> a.v-b.v || a.member.name.localeCompare(b.member.name));
+  return candidates[0];
+}
 async function autoReplaceForOOO(memberId, dateISOs){
   const byWeek = {};
   dateISOs.forEach(dISO=>{
     const wISO = iso(mondayOf(new Date(dISO+'T00:00:00')));
     (byWeek[wISO] = byWeek[wISO] || []).push(dISO);
   });
-  let replaced = 0, removed = 0;
+  let replaced = 0, removed = 0, crossTeam = 0;
   const replacedNames = new Set();
+  const crossTeamNotes = [];
+  const originTeamId = currentTeamId;
+  const originTeam = state.teams.find(t=>t.id===originTeamId);
   for(const wISO of Object.keys(byWeek)){
     const sched = await loadWeek(wISO);
     let changed = false;
@@ -4471,8 +4574,31 @@ async function autoReplaceForOOO(memberId, dateISOs){
         if(!task || task.sameAllWeek) continue; // same-all-week needs a manager's judgment call — see note above
         const replacement = await nextInLineSingleDate(taskId, dISO, new Set([memberId]), sched);
         day[taskId] = day[taskId].filter(x=>x!==memberId);
-        if(replacement){ day[taskId].push(replacement.id); replaced++; replacedNames.add(replacement.name); }
-        else removed++;
+        if(replacement){
+          day[taskId].push(replacement.id);
+          replaced++;
+          replacedNames.add(replacement.name);
+        } else {
+          // Nobody on this team can cover it — before leaving it open, check whether a
+          // sibling team in the same department (sharing this task by name) has someone
+          // free. If so, that person gets added to THEIR OWN team's schedule for this task
+          // and date — a real, visible change to another team's data, so it's always named
+          // explicitly in the summary, never silent.
+          const cross = await findCrossTeamCoverage(originTeamId, task.name, dISO, memberId);
+          if(cross){
+            await withBorrowedTeamContext(cross.team.id, mondayOf(new Date(dISO+'T00:00:00')), async ()=>{
+              currentSchedule[dISO] = currentSchedule[dISO] || {};
+              currentSchedule[dISO][cross.task.id] = currentSchedule[dISO][cross.task.id] || [];
+              if(!currentSchedule[dISO][cross.task.id].includes(cross.member.id)) currentSchedule[dISO][cross.task.id].push(cross.member.id);
+              await saveWeek(iso(currentWeekMonday), currentSchedule);
+            });
+            crossTeam++;
+            crossTeamNotes.push(`${cross.member.name} (${cross.team.name})`);
+            logAudit('schedule.cross_team_cover', { task: task.name, date: dISO, coveredBy: cross.member.name, fromTeam: cross.team.name, originTeam: originTeam?.name });
+          } else {
+            removed++;
+          }
+        }
         changed = true;
       }
     }
@@ -4481,16 +4607,17 @@ async function autoReplaceForOOO(memberId, dateISOs){
       if(wISO === iso(currentWeekMonday)) drawScheduleGrid(); // keep the on-screen grid in sync if it's the affected week
     }
   }
-  if(replaced===0 && removed===0){
+  if(replaced===0 && removed===0 && crossTeam===0){
     showToast(`Marked off — nothing was scheduled for ${dateISOs.length>1?'those days':'that day'} yet, so there was nothing to replace`);
     return;
   }
   balanceCache = null;
   const bits = [];
   if(replaced>0) bits.push(`${replaced} shift${replaced>1?'s':''} covered by ${[...replacedNames].join(', ')}`);
-  if(removed>0) bits.push(`${removed} shift${removed>1?'s':''} left open — no one eligible`);
+  if(crossTeam>0) bits.push(`${crossTeam} shift${crossTeam>1?'s':''} covered from another team: ${crossTeamNotes.join(', ')}`);
+  if(removed>0) bits.push(`${removed} shift${removed>1?'s':''} left open — no one eligible anywhere`);
   showToast(`Auto-replaced: ${bits.join('; ')}`);
-  logAudit('schedule.auto_replace_ooo', { memberId, dates: dateISOs.join(','), replaced, removed });
+  logAudit('schedule.auto_replace_ooo', { memberId, dates: dateISOs.join(','), replaced, crossTeam, removed });
 }
 
 // ================= BALANCE TAB =================
