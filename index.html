@@ -78,6 +78,7 @@
   .nav-item:hover{ opacity:1; background:rgba(237,255,233,0.08); }
   .nav-item.active{ opacity:1; background:rgba(237,255,233,0.16); }
   .sidebar-foot{ margin-top:auto; padding:10px 12px; font-size:11.5px; opacity:0.5; line-height:1.5; }
+  .sidebar-section-label{ padding:4px 12px 6px 12px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--sidebar-ink); opacity:0.55; }
   .team-switcher{ padding:2px 8px 4px 8px; }
   .team-switcher label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--sidebar-ink); opacity:0.6; margin-bottom:5px; }
   .team-switcher select, .team-switcher .fsel-trigger{ width:100%; font-size:13px; font-weight:600; padding:7px 9px; }
@@ -285,7 +286,6 @@
     background:transparent; color:var(--ink-soft); font-weight:700; text-align:center;
     display:flex; align-items:center; justify-content:center;
   }
-  .add-select[style*="--add-team-color"] .fsel-trigger{ border-style:solid; border-color:var(--add-team-color); }
   .add-select .fsel{ width:auto; }
   .add-select .fsel-menu{ width:max-content; max-width:260px; min-width:130px; left:50%; right:auto; transform:translateX(-50%); }
   .add-select:has(.fsel-menu.open){ opacity:1; }
@@ -526,7 +526,6 @@
 
     <div class="sidebar-panel">
       <button class="nav-item admin-only active" data-tab="schedule">Schedule</button>
-      <button class="nav-item admin-only" data-tab="grand" id="nav-grand" style="display:none;">Grand Schedule</button>
       <button class="nav-item admin-only" data-tab="org">Teams &amp; People</button>
       <button class="nav-item admin-only" data-tab="tasks">Tasks</button>
       <button class="nav-item admin-only" data-tab="requirements">Weekly needs</button>
@@ -534,6 +533,11 @@
 
       <button class="nav-item viewer-only active" data-tab="myschedule">My schedule</button>
       <button class="nav-item viewer-only" data-tab="myholidays">My holidays</button>
+    </div>
+
+    <div class="sidebar-panel admin-only" id="grand-nav-box" style="display:none;">
+      <div class="sidebar-section-label">Department-wide</div>
+      <button class="nav-item admin-only" data-tab="grand" id="nav-grand">Grand Schedule</button>
     </div>
 
     <div class="sidebar-panel admin-only">
@@ -675,6 +679,7 @@
         <div id="grand-req-wrap"></div>
         <div class="row" style="margin-top:14px;"><div class="spacer"></div><button class="btn small" id="btn-apply-grand-req">Apply to teams</button></div>
       </div>
+      <div id="grand-balance-wrap"></div>
     </div>
 
     <!-- BALANCE TAB -->
@@ -2662,8 +2667,8 @@ function teamsInDepartment(deptId){
   return state.teams.filter(t=>t.departmentId===deptId);
 }
 function renderTeamSwitcher(){
-  const navGrand = document.getElementById('nav-grand');
-  if(navGrand) navGrand.style.display = state.departments.length>0 ? '' : 'none';
+  const grandNavBox = document.getElementById('grand-nav-box');
+  if(grandNavBox) grandNavBox.style.display = state.departments.length>0 ? '' : 'none';
   const deptWrap = document.getElementById('dept-switcher-wrap');
   const deptSel = document.getElementById('dept-switch-select');
   const deptLabel = document.getElementById('dept-switch-label');
@@ -3533,6 +3538,63 @@ document.getElementById('btn-apply-grand-req').addEventListener('click', async (
   });
 });
 
+async function renderGrandBalanceTab(){
+  const wrap = document.getElementById('grand-balance-wrap');
+  if(!wrap || !currentDepartmentId) return;
+  wrap.innerHTML = `<div class="card"><h3>Grand rotation balance</h3><div class="muted" style="padding:8px 2px;">Loading…</div></div>`;
+  const groups = grandTaskGroups(currentDepartmentId);
+  const names = Object.keys(groups).sort();
+  if(names.length===0){
+    wrap.innerHTML = `<div class="card"><h3>Grand rotation balance</h3><div class="muted" style="font-size:12.5px;">No tasks yet in this department's teams.</div></div>`;
+    return;
+  }
+  // Compute each contributing team's own balance once, not once per task — same numbers get
+  // reused across every task-name group that team participates in.
+  const teamBalances = {};
+  for(const key of names){
+    for(const {team} of groups[key].perTeam){
+      if(!teamBalances[team.id]) teamBalances[team.id] = await computeBalanceForTeam(team.id);
+    }
+  }
+
+  let html = `<div class="card"><h3>Grand rotation balance <span class="muted" style="font-weight:400; font-size:12px;">— last ${BALANCE_WINDOW_WEEKS} weeks, across this department</span></h3>`;
+  names.forEach(key=>{
+    const g = groups[key];
+    const showTeam = g.perTeam.length>1;
+    const pool = [];
+    g.perTeam.forEach(({team, task})=>{
+      state.members.filter(m=>m.teamId===team.id).forEach(m=>{
+        if(m.eligibility[task.id] && levelAllowed(task, m.levels)){
+          pool.push({ m, team, v: (teamBalances[team.id][m.id]&&teamBalances[team.id][m.id][task.id])||0 });
+        }
+      });
+    });
+    html += `<div style="margin-bottom:22px;"><div style="font-weight:700; font-size:13.5px; margin-bottom:2px;">${escHtml(g.displayName)}</div>
+      <div class="muted" style="font-size:11.5px; margin-bottom:8px;">${pool.length} eligible across ${g.perTeam.length} team${g.perTeam.length===1?'':'s'}</div>`;
+    if(pool.length===0){
+      html += `<div class="muted" style="font-size:12.5px;">No one is currently eligible for this task.</div>`;
+    } else {
+      const maxV = Math.max(1, ...pool.map(c=>c.v));
+      const minV = Math.min(...pool.map(c=>c.v));
+      pool.sort((a,b)=> a.v-b.v || a.m.name.localeCompare(b.m.name));
+      html += '<div class="bal-rows">';
+      pool.forEach(c=>{
+        const pct = Math.round((c.v/maxV)*100);
+        const isNext = c.v===minV;
+        html += `<div class="bal-row">
+          <div class="bal-name">${escHtml(c.m.name)}${showTeam?` <span class="muted" style="font-size:10.5px;">— ${escHtml(c.team.name)}</span>`:''} ${isNext?'<span class="bal-next">next up</span>':''}</div>
+          <div class="bal-bar-wrap"><div style="width:${pct}%; background:${colorForMember(c.m.id).bg};"></div></div>
+          <div class="bal-count mono">${c.v}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
 // ================= GRAND SCHEDULE TAB =================
 let grandWeekMonday = null;
 async function renderGrandTab(){
@@ -3557,6 +3619,12 @@ async function renderGrandTab(){
   }catch(e){
     console.error('Grand Requirement failed to render', e);
     document.getElementById('grand-req-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">Couldn't load this — ${escHtml(e.message||String(e))}.</div>`;
+  }
+  try{
+    await renderGrandBalanceTab();
+  }catch(e){
+    console.error('Grand Balance failed to render', e);
+    document.getElementById('grand-balance-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">Couldn't load this — ${escHtml(e.message||String(e))}.</div>`;
   }
 }
 document.getElementById('grand-wk-prev').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,-7); renderGrandTab(); });
@@ -3661,20 +3729,21 @@ async function renderGrandScheduleGrid(){
       const totalAssigned = g.perTeam.reduce((s,{team,task})=> s + (((teamData[team.id].sched[dISO]||{})[task.id])||[]).length, 0);
       const shortfall = totalNeed - totalAssigned;
 
-      let addSelects = '';
+      let combinedOptions = [];
       for(const {team, task} of g.perTeam){
         const assigned = ((teamData[team.id].sched[dISO]||{})[task.id]) || [];
         const opts = await readWithBorrowedTeamContext(team.id, grandWeekMonday, async ()=> eligibleMembersForRun(task.id, [dISO], assigned));
-        const tc = colorForTeam(team.id);
-        addSelects += `<div class="add-select" data-team="${team.id}" data-task="${task.id}" data-dates="${dISO}" title="Add to ${escAttr(team.name)}" style="${g.perTeam.length>1?`--add-team-color:${tc.bg};`:''}">
-          <select data-add="1"><option value="" data-hidden-opt="1">+</option>${opts.map(m=>`<option value="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</option>`).join('')}</select>
-        </div>`;
+        opts.forEach(m=> combinedOptions.push({ member:m, team, task }));
       }
+      const showTeamInLabel = g.perTeam.length>1;
+      const addSelectHtml = `<div class="add-select" data-dates="${dISO}">
+        <select data-add="1"><option value="" data-hidden-opt="1">+</option>${combinedOptions.map(o=>`<option value="${o.team.id}::${o.task.id}::${o.member.id}">${escHtml(o.member.name)} (${(o.member.levels||[]).join('/')})${showTeamInLabel?' — '+escHtml(o.team.name):''}</option>`).join('')}</select>
+      </div>`;
       html += `<td>
         <div class="cell-inner">
         <div class="chipwrap">${bars}</div>
         <div class="cell-notice">${shortfall>0?`<div class="cell-shortfall" title="${totalAssigned} of ${totalNeed} filled">needs +${shortfall}</div>`:''}</div>
-        ${addSelects}
+        ${addSelectHtml}
         </div>
       </td>`;
     }
@@ -3748,15 +3817,14 @@ async function renderGrandScheduleGrid(){
   wrap.querySelectorAll('.add-select select[data-add]').forEach(sel=>{
     sel.addEventListener('change', async ()=>{
       if(!sel.value) return;
+      const [teamId, taskId, memberId] = sel.value.split('::');
       const addWrap = sel.closest('.add-select');
-      const teamId = addWrap.dataset.team;
-      const taskId = addWrap.dataset.task;
       const cellDates = addWrap.dataset.dates.split(',');
       await withBorrowedTeamContext(teamId, grandWeekMonday, async ()=>{
         cellDates.forEach(dISO=>{
           currentSchedule[dISO] = currentSchedule[dISO] || {};
           currentSchedule[dISO][taskId] = currentSchedule[dISO][taskId] || [];
-          if(!currentSchedule[dISO][taskId].includes(sel.value)) currentSchedule[dISO][taskId].push(sel.value);
+          if(!currentSchedule[dISO][taskId].includes(memberId)) currentSchedule[dISO][taskId].push(memberId);
         });
         await saveWeek(iso(currentWeekMonday), currentSchedule);
         balanceCache = null;
@@ -3795,26 +3863,40 @@ function isOnHoliday(memberId, dateISO){ return (state.holidays[memberId]||[]).i
 function eligibleCount(task){
   return teamMembers().filter(m=> m.eligibility[task.id] && levelAllowed(task,m.levels)).length;
 }
+const BALANCE_WINDOW_WEEKS = 8; // how far back "fair rotation" looks — recent, not lifetime
 async function computeBalance(){
   if(balanceCache) return balanceCache;
-  // opportunistically pull in any weeks saved to the cloud that this session hasn't loaded yet —
-  // best-effort only, never blocks: if the cloud is unreachable we just use what's in memory.
-  const prefix = 'schedule_'+currentTeamId+'_';
+  balanceCache = await computeBalanceForTeam(currentTeamId);
+  return balanceCache;
+}
+// Same computation, for any team, independent of the shared balanceCache — used directly by
+// the current team's own balance (via computeBalance above) and by Grand Balance, which needs
+// several teams' numbers at once without corrupting each other's cache.
+async function computeBalanceForTeam(teamId){
+  const prefix = 'schedule_'+teamId+'_';
+  const schedules = state.schedulesByTeam[teamId] = state.schedulesByTeam[teamId] || {};
   try{
     const list = await window.storage.list(prefix, true);
     if(list && list.keys){
-      const missing = list.keys.filter(k => !Object.prototype.hasOwnProperty.call(state.schedules, k.slice(prefix.length)));
+      const missing = list.keys.filter(k => !Object.prototype.hasOwnProperty.call(schedules, k.slice(prefix.length)));
       await Promise.all(missing.map(async k=>{
         const weekISO = k.slice(prefix.length);
         try{
           const res = await window.storage.get(k, true);
-          if(res) state.schedules[weekISO] = JSON.parse(res.value);
+          if(res) schedules[weekISO] = JSON.parse(res.value);
         }catch(e){}
       }));
     }
   }catch(e){}
+  // Only count the last N weeks — an all-time tally means a new hire (0 forever-ago-to-now)
+  // or someone back from a few weeks of holiday (artificially "underdue") gets over-prioritized
+  // in a catch-up burst. A rolling window bounds that gap to the window size instead of letting
+  // it grow unbounded, which is really just a more honest definition of "fair rotation" —
+  // recent balance, not a lifetime total that old data quietly keeps influencing.
+  const cutoff = addDays(mondayOf(new Date()), -7*BALANCE_WINDOW_WEEKS);
   const balance = {};
-  Object.values(state.schedules).forEach(weekSched=>{
+  Object.entries(schedules).forEach(([weekISO, weekSched])=>{
+    if(new Date(weekISO+'T00:00:00') < cutoff) return;
     for(const dateISO in weekSched){
       for(const taskId in weekSched[dateISO]){
         (weekSched[dateISO][taskId]||[]).forEach(mid=>{
@@ -3824,7 +3906,6 @@ async function computeBalance(){
       }
     }
   });
-  balanceCache = balance;
   return balance;
 }
 
@@ -3849,6 +3930,7 @@ async function generateWeek(weekMon){
   function canAssign(member, task, d){
     const existing = existingTasks(member.id, d);
     if(existing.includes(task.id)) return false;
+    if(existing.length >= MAX_TASKS_PER_DAY) return false;
     if(task.excludes && existing.includes(task.excludes)) return false;
     const conflictsWithExisting = existing.some(tid=>{
       const et = state.tasks.find(t=>t.id===tid);
@@ -4197,9 +4279,11 @@ function existingTasksForMemberOnDate(memberId, dateISO, schedule){
 }
 // Same exclusion rule as the generator: two tasks marked as excluding each other can
 // never both land on the same person the same day.
+const MAX_TASKS_PER_DAY = 2;
 function canAssignNow(member, task, dateISO, schedule){
   const existing = existingTasksForMemberOnDate(member.id, dateISO, schedule);
   if(existing.includes(task.id)) return false;
+  if(existing.length >= MAX_TASKS_PER_DAY) return false;
   if(task.excludes && existing.includes(task.excludes)) return false;
   const conflictsWithExisting = existing.some(tid=>{
     const et = state.tasks.find(t=>t.id===tid);
