@@ -3536,13 +3536,28 @@ document.getElementById('btn-apply-grand-req').addEventListener('click', async (
 // ================= GRAND SCHEDULE TAB =================
 let grandWeekMonday = null;
 async function renderGrandTab(){
-  if(!currentDepartmentId) return;
+  if(!currentDepartmentId) currentDepartmentId = state.departments[0]?.id || null;
+  if(!currentDepartmentId){
+    document.getElementById('grand-sched-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">No department is set up yet — see Data → "Set up a department."</div>`;
+    document.getElementById('grand-req-wrap').innerHTML = '';
+    return;
+  }
   if(!grandWeekMonday) grandWeekMonday = new Date(currentWeekMonday);
   const dept = state.departments.find(d=>d.id===currentDepartmentId);
   document.getElementById('grand-dept-name').textContent = dept ? `Combined view across every team in ${escHtml(dept.name)}.` : 'Combined view across every team in this department.';
   document.getElementById('grand-week-label').textContent = fmtWeek(grandWeekMonday);
-  await renderGrandScheduleGrid();
-  await renderGrandReqTab();
+  try{
+    await renderGrandScheduleGrid();
+  }catch(e){
+    console.error('Grand Schedule failed to render', e);
+    document.getElementById('grand-sched-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">Couldn't load this — ${escHtml(e.message||String(e))}. Try Refresh, or a different week.</div>`;
+  }
+  try{
+    await renderGrandReqTab();
+  }catch(e){
+    console.error('Grand Requirement failed to render', e);
+    document.getElementById('grand-req-wrap').innerHTML = `<div class="muted" style="font-size:12.5px;">Couldn't load this — ${escHtml(e.message||String(e))}.</div>`;
+  }
 }
 document.getElementById('grand-wk-prev').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,-7); renderGrandTab(); });
 document.getElementById('grand-wk-next').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,7); renderGrandTab(); });
@@ -3574,11 +3589,13 @@ async function readWithBorrowedTeamContext(teamId, weekMonday, fn){
   currentTeamId = teamId;
   currentWeekMonday = weekMonday;
   currentSchedule = await loadWeek(iso(weekMonday));
-  const result = await fn();
-  currentTeamId = realTeamId;
-  currentWeekMonday = realWeekMonday;
-  currentSchedule = realSchedule;
-  return result;
+  try{
+    return await fn();
+  } finally {
+    currentTeamId = realTeamId;
+    currentWeekMonday = realWeekMonday;
+    currentSchedule = realSchedule;
+  }
 }
 async function renderGrandScheduleGrid(){
   const wrap = document.getElementById('grand-sched-wrap');
@@ -3761,7 +3778,7 @@ function shuffleTiedGroups(arr, keyFn){
   return result;
 }
 function levelAllowed(task, memberLevels){
-  if(!task.levels || task.levels.length===0) return true;
+  if(!task || !task.levels || task.levels.length===0) return true;
   const mine = Array.isArray(memberLevels) ? memberLevels : [memberLevels];
   return task.levels.some(l=> mine.includes(l));
 }
