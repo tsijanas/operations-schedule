@@ -233,6 +233,7 @@
   }
   .bar:hover{ filter:brightness(1.06); }
   .bar .bar-name{ display:flex; align-items:center; justify-content:center; gap:6px; flex:1 1 auto; min-width:0; }
+  .team-dot{ width:8px; height:8px; border-radius:50%; border:1.5px solid; flex-shrink:0; }
   .bar .bar-name-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .bar.short{ box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7); }
   .bar.needs-replace{ box-shadow: 0 0 0 2px var(--brick); }
@@ -284,6 +285,7 @@
     background:transparent; color:var(--ink-soft); font-weight:700; text-align:center;
     display:flex; align-items:center; justify-content:center;
   }
+  .add-select[style*="--add-team-color"] .fsel-trigger{ border-style:solid; border-color:var(--add-team-color); }
   .add-select .fsel{ width:auto; }
   .add-select .fsel-menu{ width:max-content; max-width:260px; min-width:130px; left:50%; right:auto; transform:translateX(-50%); }
   .add-select:has(.fsel-menu.open){ opacity:1; }
@@ -391,10 +393,6 @@
   .idea-row-priority-pick{ display:flex; align-items:center; gap:8px; }
   .idea-row-priority-pick label{ font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.03em; }
   .idea-row-priority-pick select{ width:auto; font-size:12px; padding:5px 9px; }
-  .grand-sched-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  .grand-sched-table th{ background:var(--gold-soft); padding:8px; text-align:center; font-weight:700; }
-  .grand-sched-table td{ padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
-  .gs-team-row td:first-child{ font-size:11px; font-weight:700; text-transform:uppercase; border-radius:6px; padding:6px 10px; vertical-align:middle; text-align:center; }
   .pool-task-row{ display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px dashed var(--line); border-radius:10px; margin-bottom:8px; background:var(--paper); }
   .pool-task-row .pt-name{ font-weight:600; font-size:13px; flex:1; }
   .pool-task-row .pt-source{ font-size:10.5px; color:var(--ink-faint); }
@@ -668,7 +666,7 @@
       </div>
       <div class="card" style="overflow-x:auto;">
         <h3>Grand schedule</h3>
-        <div class="hint">Every team in this department, stacked together, for the week above. This is the real schedule each team already has — read-only here for now; edit it from each team's own Schedule tab.</div>
+        <div class="hint">Every team in this department, stacked together, for the week above — click any name or the + to add, replace, or remove someone, exactly like a normal team's Schedule tab. Changes here are the same real data each team sees in their own Schedule tab, not a copy.</div>
         <div id="grand-sched-wrap"></div>
       </div>
       <div class="card" style="overflow-x:auto;">
@@ -3536,15 +3534,6 @@ document.getElementById('btn-apply-grand-req').addEventListener('click', async (
 });
 
 // ================= GRAND SCHEDULE TAB =================
-// Loads a specific team's schedule directly, independent of the currentTeamId-scoped cache
-// the rest of the app uses — Grand Schedule needs several teams' schedules at once, not just
-// whichever one is currently selected in the sidebar.
-async function loadWeekForTeam(teamId, weekISO){
-  try{
-    const r = await window.storage.get('schedule_'+teamId+'_'+weekISO, true);
-    return r ? JSON.parse(r.value) : {};
-  }catch(e){ return {}; }
-}
 let grandWeekMonday = null;
 async function renderGrandTab(){
   if(!currentDepartmentId) return;
@@ -3558,6 +3547,39 @@ async function renderGrandTab(){
 document.getElementById('grand-wk-prev').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,-7); renderGrandTab(); });
 document.getElementById('grand-wk-next').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,7); renderGrandTab(); });
 
+// Runs fn() with currentTeamId/currentWeekMonday/currentSchedule temporarily pointed at a
+// different team, then restores the real ones. Needed because doReplace/doReplaceWithSpecific
+// (reused as-is here for true parity with team level) call drawScheduleGrid() internally,
+// which would otherwise silently overwrite the *hidden* team-level tab with the wrong team's
+// data — the real context is always restored, and the real grid is always redrawn afterward
+// to guarantee it never ends up showing borrowed data.
+async function withBorrowedTeamContext(teamId, weekMonday, fn){
+  const realTeamId = currentTeamId, realWeekMonday = currentWeekMonday, realSchedule = currentSchedule;
+  currentTeamId = teamId;
+  currentWeekMonday = weekMonday;
+  currentSchedule = await loadWeek(iso(weekMonday));
+  try{
+    return await fn();
+  } finally {
+    currentTeamId = realTeamId;
+    currentWeekMonday = realWeekMonday;
+    currentSchedule = realSchedule;
+    drawScheduleGrid();
+  }
+}
+// Same idea, but for read-only lookups (like "who's eligible") rather than an actual edit —
+// skips the real-Schedule-tab redraw, since that's only meaningful after something changed.
+async function readWithBorrowedTeamContext(teamId, weekMonday, fn){
+  const realTeamId = currentTeamId, realWeekMonday = currentWeekMonday, realSchedule = currentSchedule;
+  currentTeamId = teamId;
+  currentWeekMonday = weekMonday;
+  currentSchedule = await loadWeek(iso(weekMonday));
+  const result = await fn();
+  currentTeamId = realTeamId;
+  currentWeekMonday = realWeekMonday;
+  currentSchedule = realSchedule;
+  return result;
+}
 async function renderGrandScheduleGrid(){
   const wrap = document.getElementById('grand-sched-wrap');
   if(!wrap || !currentDepartmentId) return;
@@ -3565,36 +3587,158 @@ async function renderGrandScheduleGrid(){
   const teams = teamsInDepartment(currentDepartmentId);
   if(teams.length===0){ wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">No teams in this department yet.</div>`; return; }
 
-  const dates = DAYS.map((d,i)=> iso(addDays(grandWeekMonday,i)));
-
-  // One fetch per team per week (schedule docs are stored per week, not per day), then read
-  // each day out of that single object.
-  let html = '<table class="grand-sched-table"><thead><tr><th style="text-align:left;">Team</th><th style="text-align:left;">Task</th>';
-  DAYS.forEach(d=> html += `<th>${DAY_LABELS[d]}</th>`);
-  html += '</tr></thead><tbody>';
   const weekISO = iso(grandWeekMonday);
+  const dates = DAYS.map((d,i)=> iso(addDays(grandWeekMonday,i)));
+  const teamData = {};
   for(const team of teams){
-    const sched = await loadWeekForTeam(team.id, weekISO);
-    const tasks = state.tasksByTeam[team.id] || [];
-    const tc = colorForTeam(team.id);
-    if(tasks.length===0){
-      html += `<tr class="gs-team-row"><td style="background:${tc.bg}; color:${tc.fg};">${escHtml(team.name)}</td><td colspan="8" class="muted">No tasks set up for this team.</td></tr>`;
-      continue;
-    }
-    tasks.forEach((task, i)=>{
-      html += `<tr class="gs-team-row">`;
-      html += i===0 ? `<td style="background:${tc.bg}; color:${tc.fg};" rowspan="${tasks.length}">${escHtml(team.name)}</td>` : '';
-      html += `<td style="font-weight:600;">${escHtml(task.name)}</td>`;
-      dates.forEach(dISO=>{
-        const ids = ((sched[dISO]||{})[task.id]) || [];
-        const names = ids.map(id=> state.members.find(m=>m.id===id)?.name || '?');
-        html += `<td>${names.length ? names.map(n=>`<span class="idea-row-title" style="display:block; font-size:11px; font-weight:600;">${escHtml(n)}</span>`).join('') : '<span class="muted" style="font-size:11px;">—</span>'}</td>`;
+    teamData[team.id] = { sched: await loadWeekForTeam(team.id, weekISO) };
+  }
+  const groups = grandTaskGroups(currentDepartmentId);
+  const names = Object.keys(groups).sort();
+  if(names.length===0){ wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">No tasks yet in this department's teams.</div>`; return; }
+
+  let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
+  DAYS.forEach((d,i)=>{
+    const dt = addDays(grandWeekMonday,i);
+    const bhName = bankHolidayName(iso(dt));
+    html += `<th class="${bhName?'bank-hol-col':''}" title="${bhName?escAttr(bhName):''}"><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span>${bhName?'<span class="bank-hol-dot"></span>':''}</div></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  for(const key of names){
+    const g = groups[key];
+    html += `<tr><td class="taskname" title="${escAttr(g.displayName)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(g.displayName)}</span></div></td>`;
+    for(let di=0; di<dates.length; di++){
+      const dISO = dates[di];
+      const dayKey = DAYS[di];
+      let totalNeed = 0;
+      let bars = '';
+      g.perTeam.forEach(({team, task})=>{
+        const need = isBankHoliday(dISO) ? 0 : ((state.reqByTeam[team.id]?.[task.id]||{})[dayKey] || 0);
+        totalNeed += need;
+        const assigned = ((teamData[team.id].sched[dISO]||{})[task.id]) || [];
+        const tc = colorForTeam(team.id);
+        assigned.forEach(mid=>{
+          const pColor = colorForMember(mid);
+          bars += `<div class="bar-item" data-team="${team.id}" data-task="${task.id}" data-dates="${dISO}">
+            <button class="bar" data-mid="${mid}" style="background:${pColor.bg}; color:${pColor.fg};" title="Click to see options">
+              <span class="bar-name"><span class="team-dot" style="background:${tc.bg}; border-color:${tc.fg==='#EDFFE9'?'rgba(255,255,255,0.6)':'rgba(0,0,0,0.2)'};" title="${escAttr(team.name)}"></span><span class="bar-name-text">${memberName(mid)}</span></span>
+            </button>
+            <div class="bar-menu" data-mid="${mid}" style="background:color-mix(in srgb, ${pColor.bg} 45%, white); color:${pColor.fg==='#EDFFE9'?'var(--ink)':pColor.fg};">
+              <button class="bar-menu-item" data-action="delete">Delete</button>
+              <button class="bar-menu-item" data-action="replace">Replace with next in line</button>
+              <button class="bar-menu-item" data-action="replace-with">Replace with…</button>
+            </div>
+          </div>`;
+        });
       });
-      html += `</tr>`;
-    });
+      const totalAssigned = g.perTeam.reduce((s,{team,task})=> s + (((teamData[team.id].sched[dISO]||{})[task.id])||[]).length, 0);
+      const shortfall = totalNeed - totalAssigned;
+
+      let addSelects = '';
+      for(const {team, task} of g.perTeam){
+        const assigned = ((teamData[team.id].sched[dISO]||{})[task.id]) || [];
+        const opts = await readWithBorrowedTeamContext(team.id, grandWeekMonday, async ()=> eligibleMembersForRun(task.id, [dISO], assigned));
+        const tc = colorForTeam(team.id);
+        addSelects += `<div class="add-select" data-team="${team.id}" data-task="${task.id}" data-dates="${dISO}" title="Add to ${escAttr(team.name)}" style="${g.perTeam.length>1?`--add-team-color:${tc.bg};`:''}">
+          <select data-add="1"><option value="" data-hidden-opt="1">+</option>${opts.map(m=>`<option value="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</option>`).join('')}</select>
+        </div>`;
+      }
+      html += `<td>
+        <div class="cell-inner">
+        <div class="chipwrap">${bars}</div>
+        <div class="cell-notice">${shortfall>0?`<div class="cell-shortfall" title="${totalAssigned} of ${totalNeed} filled">needs +${shortfall}</div>`:''}</div>
+        ${addSelects}
+        </div>
+      </td>`;
+    }
+    html += `</tr>`;
   }
   html += '</tbody></table>';
   wrap.innerHTML = html;
+  enhanceSelectsIn(wrap);
+  closeAllBarMenus();
+
+  wrap.querySelectorAll('.bar').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const menu = btn.nextElementSibling;
+      const wasOpen = menu.classList.contains('open');
+      closeAllBarMenus();
+      if(!wasOpen) menu.classList.add('open');
+    });
+  });
+  wrap.querySelectorAll('.bar-menu').forEach(menu=>{
+    menu.querySelectorAll('.bar-menu-item').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const barItem = btn.closest('.bar-item');
+        const teamId = barItem.dataset.team;
+        const taskId = barItem.dataset.task;
+        const mid = menu.dataset.mid;
+        const cellDates = barItem.dataset.dates.split(',');
+        const action = btn.dataset.action;
+        if(action==='delete'){
+          closeAllBarMenus();
+          await withBorrowedTeamContext(teamId, grandWeekMonday, async ()=>{
+            cellDates.forEach(dISO=>{
+              currentSchedule[dISO][taskId] = (currentSchedule[dISO][taskId]||[]).filter(x=>x!==mid);
+            });
+            await saveWeek(iso(currentWeekMonday), currentSchedule);
+            balanceCache = null;
+          });
+          logAudit('grand_schedule.remove', { team: state.teams.find(t=>t.id===teamId)?.name, task: taskId });
+          renderGrandScheduleGrid();
+        } else if(action==='replace'){
+          closeAllBarMenus();
+          await withBorrowedTeamContext(teamId, grandWeekMonday, ()=> doReplace(taskId, cellDates, mid));
+          renderGrandScheduleGrid();
+        } else if(action==='replace-with'){
+          let candidates = [];
+          await withBorrowedTeamContext(teamId, grandWeekMonday, async ()=>{
+            const assigned = ((currentSchedule[cellDates[0]]||{})[taskId]) || [];
+            candidates = eligibleMembersForRun(taskId, cellDates, assigned.filter(id=>id!==mid));
+          });
+          menu.innerHTML = `<button class="bar-menu-item" data-action="replace-with-back">← Back</button>`
+            + (candidates.length===0
+              ? `<div class="bar-menu-empty">No one else is eligible and free for this.</div>`
+              : candidates.map(m=>`<button class="bar-menu-item" data-action="replace-with-pick" data-target="${m.id}">${escHtml(m.name)} (${(m.levels||[]).join('/')})</button>`).join(''));
+          menu.querySelectorAll('.bar-menu-item').forEach(newBtn=>{
+            newBtn.addEventListener('click', async (e2)=>{
+              e2.stopPropagation();
+              const act2 = newBtn.dataset.action;
+              if(act2==='replace-with-back'){ renderGrandScheduleGrid(); }
+              else if(act2==='replace-with-pick'){
+                closeAllBarMenus();
+                await withBorrowedTeamContext(teamId, grandWeekMonday, ()=> doReplaceWithSpecific(taskId, cellDates, mid, newBtn.dataset.target));
+                renderGrandScheduleGrid();
+              }
+            });
+          });
+        }
+      });
+    });
+  });
+  wrap.querySelectorAll('.add-select select[data-add]').forEach(sel=>{
+    sel.addEventListener('change', async ()=>{
+      if(!sel.value) return;
+      const addWrap = sel.closest('.add-select');
+      const teamId = addWrap.dataset.team;
+      const taskId = addWrap.dataset.task;
+      const cellDates = addWrap.dataset.dates.split(',');
+      await withBorrowedTeamContext(teamId, grandWeekMonday, async ()=>{
+        cellDates.forEach(dISO=>{
+          currentSchedule[dISO] = currentSchedule[dISO] || {};
+          currentSchedule[dISO][taskId] = currentSchedule[dISO][taskId] || [];
+          if(!currentSchedule[dISO][taskId].includes(sel.value)) currentSchedule[dISO][taskId].push(sel.value);
+        });
+        await saveWeek(iso(currentWeekMonday), currentSchedule);
+        balanceCache = null;
+      });
+      logAudit('grand_schedule.assign', { team: state.teams.find(t=>t.id===teamId)?.name, task: taskId });
+      renderGrandScheduleGrid();
+    });
+  });
 }
 // sort() with a random comparator is a well-known trap — it's biased, not a real shuffle,
 // because sort algorithms don't call the comparator evenly across all pairs. To actually
@@ -3808,23 +3952,9 @@ function renderYourWeekSummary(){
 }
 function memberName(id){ const m=state.members.find(x=>x.id===id); return m?m.name:'?'; }
 
-function drawScheduleGrid(){
-  const wrap = document.getElementById('sched-grid-wrap');
+function buildScheduleTableHtml(teamId){
   const dates = DAYS.map((d,i)=> iso(addDays(currentWeekMonday,i)));
-
-  // Group consecutive days with the exact same set of assigned people into one spanning bar —
-  // this is what lets a task with "same person all week" turned on show as one long
-  // bar instead of repeating identical cells every day, echoing the timeline view.
   function runsFor(taskId){
-    // Only merge consecutive days into one spanning bar when this task is actually configured
-    // as "same person covers the whole week" — otherwise two days that just happen to land on
-    // the same person (fairness rotation, coincidence, manual choice) must stay fully separate,
-    // each with its own Delete/Replace, not silently combined into one.
-    //
-    // Same-all-week merging is driven by the task's weekly requirement pattern (which days it
-    // actually needs coverage), NOT by whether the current assignment happens to match across
-    // days — otherwise deleting the shared person "unmerges" the cell and lets someone fill
-    // each day separately, defeating the whole point of the setting.
     const task = state.tasks.find(t=>t.id===taskId);
     const allowMerge = !!(task && task.sameAllWeek);
     const runs = [];
@@ -3843,7 +3973,6 @@ function drawScheduleGrid(){
     }
     return runs;
   }
-
   let html = '<table class="sched-table"><thead><tr><th style="text-align:left;">Task</th>';
   DAYS.forEach((d,i)=>{
     const dt = addDays(currentWeekMonday,i);
@@ -3851,18 +3980,16 @@ function drawScheduleGrid(){
     html += `<th class="${bhName?'bank-hol-col':''}" title="${bhName?escAttr(bhName):''}"><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span>${bhName?'<span class="bank-hol-dot"></span>':''}</div></th>`;
   });
   html += '</tr></thead><tbody>';
-
   state.tasks.forEach(task=>{
     const lvlTag = (task.levels && task.levels.length) ? `<span class="task-lvl-tag">${escHtml(task.levels.join('/'))}</span>` : '';
     html += `<tr><td class="taskname" title="${escAttr(task.name)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(task.name)}</span>${lvlTag}</div></td>`;
-    const runs = runsFor(task.id);
-    runs.forEach(run=>{
+    runsFor(task.id).forEach(run=>{
       const span = run.endIdx - run.startIdx + 1;
       const primaryDate = run.dates[0];
       const need = isBankHoliday(primaryDate) ? 0 : ((state.req[task.id]||{})[DAYS[run.startIdx]] || 0);
       const assigned = run.ids;
       const spanned = span > 1;
-      html += `<td ${spanned?`colspan="${span}"`:''} data-date="${primaryDate}" data-task="${task.id}" data-dates="${run.dates.join(',')}" class="${spanned?'spanned-cell':''}">
+      html += `<td ${spanned?`colspan="${span}"`:''} data-date="${primaryDate}" data-task="${task.id}" data-dates="${run.dates.join(',')}" data-team="${teamId}" class="${spanned?'spanned-cell':''}">
         <div class="cell-inner">
         <div class="chipwrap">`;
       assigned.forEach(mid=>{
@@ -3874,11 +4001,7 @@ function drawScheduleGrid(){
           <button class="bar ${assigned.length>need?'short':''} ${isMe?'me':''} ${isSick?'needs-replace':''}" data-mid="${mid}" style="background:${pColor.bg}; color:${pColor.fg};" title="${isSick?'Out of office — consider replacing':'Click to see options'}">
             <span class="bar-name">${isSick?'<span class="sick-badge" style="background:'+overlay+';">!</span> ':''}<span class="bar-name-text">${memberName(mid)}</span>${isMe?'<span class="you-tag">you</span>':''}</span>
           </button>
-          <div class="bar-menu" data-mid="${mid}" style="background:color-mix(in srgb, ${pColor.bg} 45%, white); color:${pColor.fg==='#EDFFE9'?'var(--ink)':pColor.fg};">
-            <button class="bar-menu-item" data-action="delete">Delete</button>
-            <button class="bar-menu-item" data-action="replace">Replace with next in line</button>
-            <button class="bar-menu-item" data-action="replace-with">Replace with…</button>
-          </div>
+          <div class="bar-menu" data-mid="${mid}" style="background:color-mix(in srgb, ${pColor.bg} 45%, white); color:${pColor.fg==='#EDFFE9'?'var(--ink)':pColor.fg};">${mainBarMenuHtml()}</div>
         </div>`;
       });
       html += `</div>`;
@@ -3894,7 +4017,11 @@ function drawScheduleGrid(){
     html += '</tr>';
   });
   html += '</tbody></table>';
-  wrap.innerHTML = html;
+  return html;
+}
+function drawScheduleGrid(){
+  const wrap = document.getElementById('sched-grid-wrap');
+  wrap.innerHTML = buildScheduleTableHtml(currentTeamId);
   enhanceSelectsIn(wrap);
 
   closeAllBarMenus();
