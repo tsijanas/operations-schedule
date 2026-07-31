@@ -153,6 +153,11 @@
   .req-table .req-diff-row td{ border-top:1px solid var(--line); }
   .req-table .diff-ok{ color:#2f6b3a; }
   .req-table .diff-short{ color:var(--brick-text); }
+  .stepper{ display:flex; align-items:center; justify-content:center; gap:2px; border-radius:20px; padding:3px; margin:0 auto; max-width:90px; transition:background 0.15s ease; }
+  .stepper-btn{ width:20px; height:20px; border-radius:50%; border:none; background:rgba(255,255,255,0.65); font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink); flex-shrink:0; }
+  .stepper-btn:hover{ background:#fff; }
+  .stepper-val{ width:26px; text-align:center; font-weight:700; font-size:13px; border:none; background:none; padding:0; -moz-appearance:textfield; }
+  .stepper-val::-webkit-outer-spin-button, .stepper-val::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
 
   .chip-check{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; border:1.5px solid var(--line); font-size:12px; font-weight:600; color:var(--ink-soft); background:#fff; cursor:pointer; }
   .chip-check:has(:checked){ background:var(--sage-soft); border-color:var(--sage); color:var(--ink); }
@@ -204,7 +209,7 @@
     text-align:left; font-weight:600; position:sticky; left:0;
     background:var(--paper); z-index:2; font-size:13.5px; overflow:hidden;
   }
-  .taskname-inner{ display:flex; flex-direction:column; justify-content:center; gap:3px; height:100%; min-height:44px; }
+  .taskname-inner{ display:flex; flex-direction:column; justify-content:center; gap:2px; height:100%; min-height:34px; }
   .taskname-text{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sched-table thead th:first-child{ position:sticky; left:0; z-index:3; background:var(--gold-soft); text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sched-table tbody tr:nth-child(even) td:not(.taskname){ background:rgba(23,50,58,0.02); }
@@ -214,9 +219,9 @@
   }
   .sched-table tbody tr:hover td{ background-color:rgba(192,147,42,0.08); }
   .sched-table tbody tr:hover td.taskname{ background-color:var(--gold-soft); }
-  .sched-table td{ padding:10px 6px; vertical-align:top; min-width:0; height:0; }
-  .cell-inner{ display:flex; flex-direction:column; height:100%; min-height:70px; }
-  .cell-notice{ flex:1; display:flex; align-items:center; justify-content:center; text-align:center; padding:4px 0; }
+  .sched-table td{ padding:6px 5px; vertical-align:top; min-width:0; height:0; }
+  .cell-inner{ display:flex; flex-direction:column; height:100%; min-height:40px; }
+  .cell-notice{ flex:1; display:flex; align-items:center; justify-content:center; text-align:center; padding:2px 0; }
   @media (max-width: 900px){
     .sched-table{ table-layout:auto; width:auto; min-width:100%; }
     .sched-table th:not(:first-child), .sched-table td:not(.taskname){ min-width:110px; }
@@ -224,17 +229,17 @@
   .day-col-head{ display:flex; flex-direction:column; align-items:center; gap:1px; }
   .day-col-head .d{ font-size:14px; font-family:'Fraunces',serif; font-weight:600; color:var(--ink); text-transform:none; letter-spacing:0; }
   .day-col-head .n{ font-size:10.5px; color:var(--ink-soft); font-weight:500; text-transform:none; }
-  .chipwrap{ display:flex; flex-direction:column; gap:5px; min-height:26px; }
+  .chipwrap{ display:flex; flex-direction:column; gap:3px; min-height:20px; }
   .bar-item{ position:relative; }
   .bar{
-    display:flex; align-items:center; justify-content:center; gap:6px;
-    background:var(--ink); color:var(--sidebar-ink); padding:7px 10px; border-radius:20px;
-    font-size:12px; font-weight:700; white-space:nowrap; cursor:pointer; border:none; width:100%;
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    background:var(--ink); color:var(--sidebar-ink); padding:3px 8px; border-radius:13px;
+    font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; border:none; width:100%;
     font-family:inherit; text-align:center; transition:filter 0.12s ease;
   }
   .bar:hover{ filter:brightness(1.06); }
-  .bar .bar-name{ display:flex; align-items:center; justify-content:center; gap:6px; flex:1 1 auto; min-width:0; }
-  .team-dot{ width:8px; height:8px; border-radius:50%; border:1.5px solid; flex-shrink:0; }
+  .bar .bar-name{ display:flex; align-items:center; justify-content:center; gap:5px; flex:1 1 auto; min-width:0; }
+  .team-dot{ width:7px; height:7px; border-radius:50%; border:1.5px solid; flex-shrink:0; }
   .bar .bar-name-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .bar.short{ box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7); }
   .bar.needs-replace{ box-shadow: 0 0 0 2px var(--brick); }
@@ -309,6 +314,10 @@
   .member-card-summary, .task-card-summary{ display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap; }
   .member-card.expanded .member-card-summary, .task-card.expanded .task-card-summary{ display:none; }
   .member-card-grid, .task-card-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:14px; margin-bottom:14px; }
+  .member-3col{ display:grid; grid-template-columns:repeat(3, 1fr); gap:22px; align-items:start; }
+  .m-col-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint); margin-bottom:10px; }
+  .m-col .field{ margin-bottom:12px; }
+  @media (max-width: 900px){ .member-3col{ grid-template-columns:1fr; } }
   .field label{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin-bottom:5px; }
   .m-level-cell{ display:flex; flex-wrap:wrap; gap:8px 12px; padding-top:4px; }
   .member-card-tasks > label{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin-bottom:7px; }
@@ -578,6 +587,24 @@
           <label class="select-all-label"><input type="checkbox" id="select-all-members"> Select all</label>
           <button class="btn-remove-x-wide" id="btn-delete-selected-members" disabled>Delete selected (0)</button>
           <button class="btn small" id="btn-save-all-members">Save changes</button>
+        </div>
+        <div class="row" style="margin-bottom:14px;">
+          <input type="text" id="member-search" placeholder="Search people…" style="max-width:220px;">
+          <select id="member-filter-level">
+            <option value="">All levels</option>
+            <option value="IC1">IC1</option>
+            <option value="IC2">IC2</option>
+            <option value="IC3">IC3</option>
+            <option value="Manager">Manager (level)</option>
+          </select>
+          <select id="member-filter-role">
+            <option value="">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="manager">Department Manager</option>
+            <option value="viewer">Viewer</option>
+          </select>
+          <div class="spacer"></div>
+          <span class="muted" style="font-size:11.5px;" id="member-filter-count"></span>
         </div>
         <div id="team-table-wrap"></div>
       </div>
@@ -2092,6 +2119,43 @@ function enhanceSelectsIn(root){
 }
 
 // ================= TEAM TAB =================
+function applyMemberFilters(){
+  const wrap = document.getElementById('team-table-wrap');
+  if(!wrap) return;
+  const q = (document.getElementById('member-search')?.value||'').trim().toLowerCase();
+  const levelFilter = document.getElementById('member-filter-level')?.value||'';
+  const roleFilter = document.getElementById('member-filter-role')?.value||'';
+  let shown = 0, total = 0;
+  wrap.querySelectorAll('.member-card').forEach(card=>{
+    total++;
+    const matchesSearch = !q || card.dataset.search.includes(q);
+    const matchesLevel = !levelFilter || (card.dataset.levels||'').split(',').includes(levelFilter);
+    const matchesRole = !roleFilter || card.dataset.role===roleFilter;
+    const visible = matchesSearch && matchesLevel && matchesRole;
+    card.style.display = visible ? '' : 'none';
+    const errEl = card.nextElementSibling; // .name-dupe-error sits right after the card
+    if(errEl && errEl.classList.contains('name-dupe-error')) errEl.style.display = visible ? '' : 'none';
+    if(visible) shown++;
+  });
+  wrap.querySelectorAll('.people-group-header').forEach(header=>{
+    // hide a group header entirely if every card in that group is filtered out
+    let node = header.nextElementSibling, anyVisible = false;
+    while(node && !node.classList.contains('people-group-header')){
+      if(node.classList.contains('member-card') && node.style.display!=='none') anyVisible = true;
+      node = node.nextElementSibling;
+    }
+    header.style.display = anyVisible ? '' : 'none';
+  });
+  const countEl = document.getElementById('member-filter-count');
+  if(countEl) countEl.textContent = (q||levelFilter||roleFilter) ? `Showing ${shown} of ${total}` : '';
+}
+const memberSearchInput = document.getElementById('member-search');
+if(memberSearchInput && !memberSearchInput.dataset.wired){
+  memberSearchInput.dataset.wired = '1';
+  memberSearchInput.addEventListener('input', applyMemberFilters);
+  document.getElementById('member-filter-level').addEventListener('change', applyMemberFilters);
+  document.getElementById('member-filter-role').addEventListener('change', applyMemberFilters);
+}
 function renderTeamTab(){
   const wrap = document.getElementById('team-table-wrap');
   const label = document.getElementById('people-team-label');
@@ -2130,51 +2194,58 @@ function renderTeamTab(){
     const roleBadge = m.role==='admin' ? `<span class="admin-badge" title="Full access, everywhere">Admin</span>`
       : m.role==='manager' ? `<span class="admin-badge manager-badge" title="Full access within ${escAttr((state.departments.find(d=>d.id===m.managerDeptId)||{}).name||'their department')}">Manager</span>`
       : '';
-    html += `<div class="member-card" data-mid="${m.id}">
+    html += `<div class="member-card" data-mid="${m.id}" data-search="${escAttr((m.name+' '+((memberContacts[m.id]&&memberContacts[m.id].email)||'')).toLowerCase())}" data-levels="${escAttr((m.levels||[]).join(','))}" data-role="${m.role||'viewer'}">
       <div class="member-card-head">
         <input type="checkbox" class="card-select-check" data-mid="${m.id}">
         <button class="card-expand-toggle" title="Expand">${chevronSvg}</button>
         <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="Name">
-        <div class="member-card-summary">${roleBadge}${levelTags}<span class="muted" style="font-size:11.5px; white-space:nowrap;">${escHtml(teamName)}</span></div>
+        <div class="member-card-summary">${roleBadge}${levelTags}</div>
         <div class="row-actions">
           <button class="btn-remove-x btn-del-member" title="Remove">×</button>
         </div>
       </div>
       <div class="field-error name-dupe-error" style="margin:-4px 0 10px 34px;"></div>
       <div class="member-card-body">
-        <div class="member-card-grid">
-          <div class="field"><label>Level</label><div class="m-level-cell">${LEVELS.map(l=>`<label class="chip-check"><input type="checkbox" class="m-level-check" value="${l}" ${(m.levels||[]).includes(l)?'checked':''}> ${l}</label>`).join('')}</div></div>
-          <div class="field"><label>Email</label><input type="email" class="m-email" value="${escAttr((memberContacts[m.id]&&memberContacts[m.id].email)||'')}"><div class="field-error email-dupe-error"></div></div>
-          <div class="field"><label>Team</label><select class="m-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===m.teamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select></div>
-        </div>
-        <div class="admin-toggle-row">
-          <div style="flex:1;">
-            <label style="font-size:11px; font-weight:700; color:var(--brick-text); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Role</label>
-            <div class="m-level-cell">
-              <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="" ${!m.role?'checked':''}> Viewer</label>
-              <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="manager" ${m.role==='manager'?'checked':''}> Manager</label>
-              <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="admin" ${m.role==='admin'?'checked':''}> Admin</label>
-            </div>
-            <div class="m-manager-dept-row" style="margin-top:8px; ${m.role==='manager'?'':'display:none;'}">
-              ${state.departments.length===0
-                ? `<span class="muted" style="font-size:11px;">No departments exist yet — set one up in the Data tab first.</span>`
-                : `<select class="m-manager-dept">${state.departments.map(d=>`<option value="${d.id}" ${m.managerDeptId===d.id?'selected':''}>${escHtml(d.name)}</option>`).join('')}</select>`}
+        <div class="member-3col">
+          <div class="m-col">
+            <div class="m-col-label">Profile</div>
+            <div class="field"><label>Email</label><input type="email" class="m-email" value="${escAttr((memberContacts[m.id]&&memberContacts[m.id].email)||'')}"><div class="field-error email-dupe-error"></div></div>
+            <div class="field"><label>Team</label><select class="m-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===m.teamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select></div>
+          </div>
+          <div class="m-col">
+            <div class="m-col-label">Access &amp; roles</div>
+            <div class="field"><label>Level</label><div class="m-level-cell">${LEVELS.map(l=>`<label class="chip-check"><input type="checkbox" class="m-level-check" value="${l}" ${(m.levels||[]).includes(l)?'checked':''}> ${l}</label>`).join('')}</div></div>
+            <div class="admin-toggle-row" style="margin-top:12px;">
+              <div style="flex:1;">
+                <label style="font-size:11px; font-weight:700; color:var(--brick-text); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Role</label>
+                <div class="m-level-cell">
+                  <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="" ${!m.role?'checked':''}> Viewer</label>
+                  <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="manager" ${m.role==='manager'?'checked':''}> Manager</label>
+                  <label class="chip-check"><input type="radio" name="m-role-${m.id}" class="m-role-pick" value="admin" ${m.role==='admin'?'checked':''}> Admin</label>
+                </div>
+                <div class="m-manager-dept-row" style="margin-top:8px; ${m.role==='manager'?'':'display:none;'}">
+                  ${state.departments.length===0
+                    ? `<span class="muted" style="font-size:11px;">No departments exist yet — set one up in the Data tab first.</span>`
+                    : `<select class="m-manager-dept">${state.departments.map(d=>`<option value="${d.id}" ${m.managerDeptId===d.id?'selected':''}>${escHtml(d.name)}</option>`).join('')}</select>`}
+                </div>
+              </div>
+              <span class="muted" style="font-size:10.5px; margin-top:6px;">Manager: full access within their department. Admin: full access everywhere. Grant carefully.</span>
             </div>
           </div>
-          <span class="muted" style="font-size:11px;">Manager sees and edits everything in their department (Grand Schedule/Requirement across its teams) but not other departments. Admin sees and edits everything, everywhere. Grant carefully.</span>
-        </div>
-        <div class="member-card-tasks">
-          <label>Eligible tasks</label>
-          <div class="task-elig-grid" data-mid="${m.id}">${state.tasks.map(t=>{
-            const on = !!m.eligibility[t.id];
-            return `<label class="task-elig-chip"><span class="checkbox ${on?'checked':''}" data-task="${t.id}" role="checkbox" aria-checked="${on}" tabindex="0">${checkSvg}</span><span class="task-elig-chip-label">${escHtml(t.name)}</span></label>`;
-          }).join('')}</div>
+          <div class="m-col">
+            <div class="m-col-label">Eligible tasks</div>
+            <div class="task-elig-grid" data-mid="${m.id}">${state.tasks.map(t=>{
+              const on = !!m.eligibility[t.id];
+              return `<label class="task-elig-chip"><span class="checkbox ${on?'checked':''}" data-task="${t.id}" role="checkbox" aria-checked="${on}" tabindex="0">${checkSvg}</span><span class="task-elig-chip-label">${escHtml(t.name)}</span></label>`;
+            }).join('')}</div>
+          </div>
         </div>
       </div>
     </div>`;
    });
   });
   wrap.innerHTML = html;
+  applyMemberFilters();
   wrap.querySelectorAll('.card-expand-toggle').forEach(btn=>{
     btn.addEventListener('click', ()=> btn.closest('.member-card').classList.toggle('expanded'));
   });
@@ -3347,30 +3418,43 @@ document.getElementById('btn-add-task').addEventListener('click', ()=>{
 // (see renderTasksTab's btn-save-all-tasks handler) — no per-card save buttons anymore.
 
 // ================= REQUIREMENTS TAB =================
+function heatBg(value, max){
+  if(value<=0) return 'background:var(--paper); border:1.5px dashed var(--line);';
+  const pct = Math.min(85, Math.round((value/Math.max(1,max))*70)+15);
+  return `background:color-mix(in srgb, var(--brick) ${pct}%, white); border:1.5px solid transparent;`;
+}
 function renderReqTab(){
   const wrap = document.getElementById('req-table-wrap');
+  const teamSize = teamMembers().length;
+  const sortedTasks = sortedTasksForDisplay(state.tasks);
   let html = '<table class="req-table"><thead><tr><th style="text-align:left;">Task</th>';
   DAYS.forEach(d=> html+=`<th>${DAY_LABELS[d]}</th>`);
   html += '</tr></thead><tbody>';
-  state.tasks.forEach(t=>{
+  sortedTasks.forEach(t=>{
     const row = state.req[t.id] || {mon:0,tue:0,wed:0,thu:0,fri:0,sat:0,sun:0};
     html += `<tr data-task="${t.id}"><td style="font-weight:600; text-align:left;">${escHtml(t.name)}</td>`;
-    DAYS.forEach(d=> html += `<td><input type="number" min="0" class="req-input" data-day="${d}" value="${row[d]||0}"></td>`);
+    DAYS.forEach(d=>{
+      const v = row[d]||0;
+      html += `<td><div class="stepper" style="${heatBg(v, teamSize)}">
+        <button type="button" class="stepper-btn" data-dir="-1">−</button>
+        <input type="number" min="0" class="req-input stepper-val" data-day="${d}" value="${v}">
+        <button type="button" class="stepper-btn" data-dir="1">+</button>
+      </div></td>`;
+    });
     html += `</tr>`;
   });
   html += `<tr class="req-total-row"><td style="font-weight:700; text-align:left;">Total</td>`;
   DAYS.forEach(d=>{
-    const sum = state.tasks.reduce((s,t)=> s+((state.req[t.id]||{})[d]||0), 0);
+    const sum = sortedTasks.reduce((s,t)=> s+((state.req[t.id]||{})[d]||0), 0);
     html += `<td class="mono day-total" data-day="${d}" style="font-weight:700;">${sum}</td>`;
   });
   html += `</tr>`;
-  const teamSize = teamMembers().length;
   html += `<tr class="req-team-row"><td style="font-weight:600; text-align:left;">Team size</td>`;
   DAYS.forEach(()=> html += `<td class="mono" style="font-weight:600;">${teamSize}</td>`);
   html += `</tr>`;
   html += `<tr class="req-diff-row"><td style="font-weight:700; text-align:left;">Spare capacity</td>`;
   DAYS.forEach(d=>{
-    const sum = state.tasks.reduce((s,t)=> s+((state.req[t.id]||{})[d]||0), 0);
+    const sum = sortedTasks.reduce((s,t)=> s+((state.req[t.id]||{})[d]||0), 0);
     const diff = teamSize - sum;
     html += `<td class="mono day-diff ${diff<0?'diff-short':'diff-ok'}" data-day="${d}" style="font-weight:700;">${diff>0?'+':''}${diff}</td>`;
   });
@@ -3378,16 +3462,27 @@ function renderReqTab(){
   html += '</tbody></table>';
   wrap.innerHTML = html;
 
+  function refreshCell(inp){
+    const v = Math.max(0, +inp.value || 0);
+    inp.value = v;
+    inp.closest('.stepper').setAttribute('style', heatBg(v, teamSize));
+    const d = inp.dataset.day;
+    const sum = Array.from(wrap.querySelectorAll(`.req-input[data-day="${d}"]`)).reduce((s,el)=> s + (+el.value||0), 0);
+    wrap.querySelector(`.day-total[data-day="${d}"]`).textContent = sum;
+    const diff = teamSize - sum;
+    const diffCell = wrap.querySelector(`.day-diff[data-day="${d}"]`);
+    diffCell.textContent = (diff>0?'+':'')+diff;
+    diffCell.classList.toggle('diff-short', diff<0);
+    diffCell.classList.toggle('diff-ok', diff>=0);
+  }
   wrap.querySelectorAll('.req-input').forEach(inp=>{
-    inp.addEventListener('input', ()=>{
-      const d = inp.dataset.day;
-      const sum = Array.from(wrap.querySelectorAll(`.req-input[data-day="${d}"]`)).reduce((s,el)=> s + (+el.value||0), 0);
-      wrap.querySelector(`.day-total[data-day="${d}"]`).textContent = sum;
-      const diff = teamSize - sum;
-      const diffCell = wrap.querySelector(`.day-diff[data-day="${d}"]`);
-      diffCell.textContent = (diff>0?'+':'')+diff;
-      diffCell.classList.toggle('diff-short', diff<0);
-      diffCell.classList.toggle('diff-ok', diff>=0);
+    inp.addEventListener('input', ()=> refreshCell(inp));
+  });
+  wrap.querySelectorAll('.stepper-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const inp = btn.parentElement.querySelector('.req-input');
+      inp.value = Math.max(0, (+inp.value||0) + (+btn.dataset.dir));
+      refreshCell(inp);
     });
   });
   renderGrandReqTab();
@@ -3458,6 +3553,7 @@ async function renderGrandReqTab(){
 
   const teamSizes = {};
   teamsInDepartment(currentDepartmentId).forEach(t=> teamSizes[t.id] = state.members.filter(m=>m.teamId===t.id).length);
+  const deptSize = Object.values(teamSizes).reduce((a,b)=>a+b,0);
 
   let html = '<table class="req-table"><thead><tr><th style="text-align:left;">Task</th>';
   DAYS.forEach(d=> html+=`<th>${DAY_LABELS[d]}</th>`);
@@ -3466,11 +3562,14 @@ async function renderGrandReqTab(){
     const g = groups[key];
     const savedRow = grandReqTotals[key] || {};
     html += `<tr data-gkey="${escAttr(key)}"><td style="font-weight:600; text-align:left;">${escHtml(g.displayName)}<div class="muted" style="font-size:10.5px; font-weight:400;">on ${g.perTeam.length} team${g.perTeam.length===1?'':'s'}</div></td>`;
-    DAYS.forEach(d=> html += `<td><input type="number" min="0" class="grand-req-input" data-day="${d}" value="${savedRow[d]||0}"></td>`);
-    html += `</tr>`;
-    html += `<tr class="grand-req-preview" data-gkey-preview="${escAttr(key)}">`;
-    html += `<td class="muted" style="font-size:10.5px; text-align:left;">split preview</td>`;
-    DAYS.forEach(d=> html += `<td class="mono muted grand-req-split" data-day="${d}" style="font-size:10.5px;">—</td>`);
+    DAYS.forEach(d=>{
+      const v = savedRow[d]||0;
+      html += `<td><div class="stepper" style="${heatBg(v, deptSize)}" title="Hover after typing a number to see the per-team split">
+        <button type="button" class="stepper-btn" data-dir="-1">−</button>
+        <input type="number" min="0" class="grand-req-input stepper-val" data-day="${d}" value="${v}">
+        <button type="button" class="stepper-btn" data-dir="1">+</button>
+      </div></td>`;
+    });
     html += `</tr>`;
   });
   html += '</tbody></table>';
@@ -3480,20 +3579,28 @@ async function renderGrandReqTab(){
     const key = row.dataset.gkey;
     const g = groups[key];
     const weights = g.perTeam.map(pt=>({ key:pt.team.id, weight: teamSizes[pt.team.id]||0 }));
-    const previewRow = wrap.querySelector(`[data-gkey-preview="${CSS.escape(key)}"]`);
     DAYS.forEach(d=>{
-      const total = +row.querySelector(`[data-day="${d}"]`).value || 0;
+      const inp = row.querySelector(`[data-day="${d}"]`);
+      const total = +inp.value || 0;
+      const stepper = inp.closest('.stepper');
+      stepper.setAttribute('style', heatBg(total, deptSize));
       const split = splitProportional(total, weights);
-      const cell = previewRow.querySelector(`.grand-req-split[data-day="${d}"]`);
-      cell.textContent = total===0 ? '—' : split.map(s=>{
+      stepper.title = total===0 ? 'Enter a number to see the per-team split' : split.map(s=>{
         const teamName = state.teams.find(t=>t.id===s.key)?.name || '?';
-        return `${teamName.split(' ').pop()} ${s.value}`;
+        return `${teamName}: ${s.value}`;
       }).join(' · ');
     });
   }
   wrap.querySelectorAll('tr[data-gkey]').forEach(row=>{
     updateSplitPreview(row);
     row.querySelectorAll('.grand-req-input').forEach(inp=> inp.addEventListener('input', ()=> updateSplitPreview(row)));
+  });
+  wrap.querySelectorAll('.stepper-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const inp = btn.parentElement.querySelector('.grand-req-input');
+      inp.value = Math.max(0, (+inp.value||0) + (+btn.dataset.dir));
+      inp.dispatchEvent(new Event('input', {bubbles:true}));
+    });
   });
 }
 document.getElementById('btn-apply-grand-req').addEventListener('click', async ()=>{
@@ -3854,6 +3961,14 @@ function shuffleTiedGroups(arr, keyFn){
   }
   return result;
 }
+// Tasks always show alphabetically in schedule/requirement views — so if two teams both have
+// "QA" and "Retro Transfers", they land in the same order on both, making cross-team rows line
+// up predictably (matters a lot now that Grand Schedule merges same-named tasks together).
+// This only affects display order — the actual stored array (and Task rules' own drag-to-reorder)
+// is untouched.
+function sortedTasksForDisplay(tasks){
+  return [...tasks].sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+}
 function levelAllowed(task, memberLevels){
   if(!task || !task.levels || task.levels.length===0) return true;
   const mine = Array.isArray(memberLevels) ? memberLevels : [memberLevels];
@@ -4012,7 +4127,7 @@ async function renderScheduleTab(){
 // looks and behaves identically everywhere it appears — one function, two thin callers.
 function buildYourWeekTableHtml(schedule, weekMonday, me){
   const dates = DAYS.map((d,i)=> iso(addDays(weekMonday,i)));
-  const myTasks = state.tasks.filter(t=> dates.some(dISO=> ((schedule[dISO]||{})[t.id]||[]).includes(me.id)));
+  const myTasks = sortedTasksForDisplay(state.tasks.filter(t=> dates.some(dISO=> ((schedule[dISO]||{})[t.id]||[]).includes(me.id))));
   if(myTasks.length===0) return `<div class="your-week-empty">Nothing assigned to you this week.</div>`;
 
   let html = '<table class="sched-table your-week-table"><thead><tr><th style="width:15%;"></th>';
@@ -4088,7 +4203,7 @@ function buildScheduleTableHtml(teamId){
     html += `<th class="${bhName?'bank-hol-col':''}" title="${bhName?escAttr(bhName):''}"><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span>${bhName?'<span class="bank-hol-dot"></span>':''}</div></th>`;
   });
   html += '</tr></thead><tbody>';
-  state.tasks.forEach(task=>{
+  sortedTasksForDisplay(state.tasks).forEach(task=>{
     const lvlTag = (task.levels && task.levels.length) ? `<span class="task-lvl-tag">${escHtml(task.levels.join('/'))}</span>` : '';
     html += `<tr><td class="taskname" title="${escAttr(task.name)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(task.name)}</span>${lvlTag}</div></td>`;
     runsFor(task.id).forEach(run=>{
@@ -4386,7 +4501,7 @@ async function renderBalanceTab(){
   wrap.innerHTML = '<div class="muted" style="padding:8px 2px;">Loading…</div>';
   const balance = await computeBalance();
   let html = '';
-  state.tasks.forEach(task=>{
+  sortedTasksForDisplay(state.tasks).forEach(task=>{
     const pool = teamMembers().filter(m=> m.eligibility[task.id] && levelAllowed(task, m.levels));
     html += `<div class="card">
       <h3>${escHtml(task.name)} <span class="muted" style="font-weight:400; font-size:12px;">— ${levelLabel(task)}, ${pool.length} eligible</span></h3>`;
@@ -4926,7 +5041,7 @@ function drawViewerScheduleGrid(sched){
     html += `<th class="${bhName?'bank-hol-col':''}" title="${bhName?escAttr(bhName):''}"><div class="day-col-head"><span class="d">${DAY_LABELS[d]}</span><span class="n">${dt.getDate()}</span>${bhName?'<span class="bank-hol-dot"></span>':''}</div></th>`;
   });
   html += '</tr></thead><tbody>';
-  state.tasks.forEach(task=>{
+  sortedTasksForDisplay(state.tasks).forEach(task=>{
     html += `<tr><td class="taskname" title="${escAttr(task.name)}"><div class="taskname-inner"><span class="taskname-text">${escHtml(task.name)}</span></div></td>`;
     runsFor(task.id).forEach(run=>{
       const span = run.endIdx - run.startIdx + 1;
