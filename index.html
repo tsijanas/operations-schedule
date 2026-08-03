@@ -1025,6 +1025,7 @@ sam.taylor@company.com"></textarea>
         <label class="chip-check"><input type="radio" name="invite-level" value="IC2"> IC2</label>
         <label class="chip-check"><input type="radio" name="invite-level" value="IC3"> IC3</label>
       </div>
+      <div class="muted" style="font-size:11px; margin-top:6px;">They'll start eligible for whatever's already open to this level on this team — editable per person afterward.</div>
     </div>
     <div style="margin-top:14px;">
       <label style="font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Role</label>
@@ -1345,6 +1346,18 @@ function elig(list){
   const o = {}; DEFAULT_TASKS.forEach(t=>o[t.id]=false);
   list.forEach(id=>o[id]=true);
   return o;
+}
+// A new person's starting eligibility, based on what's already "standard" for their level on
+// this team — every task's own levels restriction already says who's allowed to do it, so a
+// new IC2 starts eligible for whatever's already open to IC2s, instead of starting at zero and
+// needing every box ticked by hand. Fully editable per person afterward, same as always.
+function defaultEligibilityForTeamLevel(teamId, level){
+  const eligibility = {};
+  (state.tasksByTeam[teamId]||[]).forEach(task=>{
+    const restrictedLevels = task.levels||[];
+    eligibility[task.id] = restrictedLevels.length===0 || restrictedLevels.includes(level);
+  });
+  return eligibility;
 }
 const DEFAULT_TEAM_ID = 'team_main';
 const DEFAULT_TEAMS = [
@@ -2857,7 +2870,7 @@ document.getElementById('bulk-import-confirm').addEventListener('click', async (
       state.members.push({
         id, name:row.name, levels:[level],
         isAdmin: role==='admin', role: role||null, managerDeptId: null,
-        teamId:currentTeamId, eligibility: elig([])
+        teamId:currentTeamId, eligibility: defaultEligibilityForTeamLevel(currentTeamId, level)
       });
       created.push({ id, email: row.email });
     });
@@ -2969,7 +2982,7 @@ document.getElementById('invite-confirm').addEventListener('click', async ()=>{
     state.members.push({
       id, name:'', levels:[level],
       isAdmin: role==='admin', role: role||null, managerDeptId,
-      teamId, eligibility: elig([])
+      teamId, eligibility: defaultEligibilityForTeamLevel(teamId, level)
     });
     created.push({ id, email });
   });
@@ -2988,7 +3001,7 @@ document.getElementById('btn-bulk-add-task').addEventListener('click', ()=> open
 
 document.getElementById('btn-add-member').addEventListener('click', ()=>{
   const id = 'm_'+Math.random().toString(36).slice(2,9);
-  state.members.push({id, name:'New person', levels:['IC2'], isAdmin:false, role:null, managerDeptId:null, teamId:currentTeamId, eligibility: elig([])});
+  state.members.push({id, name:'New person', levels:['IC2'], isAdmin:false, role:null, managerDeptId:null, teamId:currentTeamId, eligibility: defaultEligibilityForTeamLevel(currentTeamId, 'IC2')});
   renderTeamTab();
   const card = document.querySelector(`.member-card[data-mid="${id}"]`);
   if(card){ card.classList.add('expanded'); card.querySelector('.m-name').focus(); card.querySelector('.m-name').select(); }
@@ -3321,7 +3334,7 @@ async function renderUnassignedList(){
       if(!level){ showToast('Pick a level first'); return; }
       if(!teamId){ showToast('Pick a team first'); return; }
       const id = 'm_'+Math.random().toString(36).slice(2,9);
-      state.members.push({ id, name, levels:[level], teamId, eligibility: elig([]) });
+      state.members.push({ id, name, levels:[level], teamId, eligibility: defaultEligibilityForTeamLevel(teamId, level) });
       const ok = await persistMembers();
       if(ok){
         try{
