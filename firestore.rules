@@ -58,7 +58,7 @@ service cloud.firestore {
     // bypassed entirely (anyone can call the Firestore SDK directly from a browser console),
     // so validation has to live here to mean anything, not just in index.html's form code.
     function isValidMember(d) {
-      return d.name is string && d.name.size() > 0 && d.name.size() <= 100
+      return d.name is string && d.name.size() <= 100
         && d.levels is list && d.levels.size() <= 10
         && (d.teamId == null || d.teamId is string)
         && (!('isAdmin' in d) || d.isAdmin is bool)
@@ -137,7 +137,22 @@ service cloud.firestore {
     // or the owner, enforced here, not just hidden behind a button in the UI.
     match /app_members/{memberId} {
       allow read: if isApproved();
-      allow create, update: if (isOwner() || isManagerUid()) && isValidMember(request.resource.data);
+      allow create: if (isOwner() || isManagerUid()) && isValidMember(request.resource.data);
+      allow update: if isValidMember(request.resource.data) && (
+        isOwner() || isManagerUid()
+        || (
+          // Self-claim name: someone who just registered via an email-only invite may set
+          // their own name — but only once (while it's still blank), only on the exact
+          // record they were just linked to, and this can never touch team, level, role, or
+          // eligibility — those stay admin-only, same as always.
+          isSignedIn()
+          && exists(/databases/$(database)/documents/claimed_links/$(request.auth.uid))
+          && get(/databases/$(database)/documents/claimed_links/$(request.auth.uid)).data.memberId == memberId
+          && resource.data.name == ''
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+          && request.resource.data.name.size() > 0
+        )
+      );
       allow delete: if isOwner() || isManagerUid();
     }
 

@@ -345,6 +345,7 @@
     padding:2px 7px; letter-spacing:0.03em; text-transform:uppercase;
   }
   .admin-badge.manager-badge{ background:var(--ink); }
+  .admin-badge.pending-invite-badge{ background:var(--gold); color:var(--ink); }
   .admin-toggle-row{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 14px 0;
     padding:9px 12px; border-radius:10px; background:var(--brick-soft); border:1px solid var(--brick);
@@ -410,6 +411,12 @@
   .pool-task-row{ display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px dashed var(--line); border-radius:10px; margin-bottom:8px; background:var(--paper); }
   .pool-task-row .pt-name{ font-weight:600; font-size:13px; flex:1; }
   .pool-task-row .pt-source{ font-size:10.5px; color:var(--ink-faint); }
+  .invite-row{ display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid var(--line); border-radius:10px; margin-bottom:6px; background:var(--paper); }
+  .invite-status-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .invite-status-dot.pending{ background:var(--gold); }
+  .invite-status-dot.registered{ background:var(--sage); }
+  .invite-name{ font-weight:600; font-size:13px; }
+  .invite-email{ font-size:12px; }
   .idea-drag-handle{ cursor:grab; color:var(--ink-faint); font-size:13px; flex-shrink:0; }
   .idea-group.drag-over{ box-shadow:0 0 0 2px var(--gold) inset; border-radius:10px; }
   .idea-row.idea-dragging{ opacity:0.4; }
@@ -585,11 +592,22 @@
         </div>
         <div id="teams-list"></div>
       </div>
+      <div class="card" id="invites-card" style="display:none;">
+        <h3>Invites <span class="muted" style="font-weight:400; font-size:12px;" id="invites-team-label"></span></h3>
+        <div class="hint">Everyone who has an email on file for this team, and whether they've actually signed in yet.</div>
+        <div class="row" style="margin:10px 0 14px 0;">
+          <span class="muted" id="invites-summary"></span>
+          <div class="spacer"></div>
+          <button class="btn small" id="btn-email-all-pending">Email all pending</button>
+        </div>
+        <div id="invites-list"></div>
+      </div>
       <div class="card" style="overflow-x:auto;">
         <h3>People <span class="muted" style="font-weight:400; font-size:12px;" id="people-team-label"></span></h3>
         <div class="row" style="margin-bottom:14px;">
           <button class="btn secondary small" id="btn-add-member">+ Add person</button>
           <button class="btn secondary small" id="btn-bulk-add-member">+ Add multiple</button>
+          <button class="btn secondary small" id="btn-invite-people">+ Invite people</button>
           <div class="spacer"></div>
           <label class="select-all-label"><input type="checkbox" id="select-all-members"> Select all</label>
           <button class="btn-remove-x-wide" id="btn-delete-selected-members" disabled>Delete selected (0)</button>
@@ -966,10 +984,60 @@
 Alex Chen	alex@company.com	IC2
 Sam Taylor"></textarea>
     <div class="muted" id="bulk-import-preview" style="font-size:12px; margin-top:8px;">Nothing pasted yet.</div>
+    <div id="bulk-import-role-row" style="margin-top:14px;">
+      <label style="font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Role for everyone in this batch</label>
+      <div class="m-level-cell">
+        <label class="chip-check"><input type="radio" name="bulk-role" value="" checked> Viewer</label>
+        <label class="chip-check"><input type="radio" name="bulk-role" value="manager"> Manager</label>
+        <label class="chip-check"><input type="radio" name="bulk-role" value="admin"> Admin</label>
+      </div>
+      <div class="muted" style="font-size:11px; margin-top:6px;">Everyone lands on <span id="bulk-import-team-name"></span>, whichever level is set in the pasted list (or IC1 if left blank). Change anyone's level, team, or role individually afterward if this batch isn't all the same.</div>
+    </div>
     <div class="row" style="margin-top:14px;">
       <div class="spacer"></div>
       <button class="btn secondary small" id="bulk-import-cancel">Cancel</button>
       <button class="btn small" id="bulk-import-confirm">Add</button>
+    </div>
+  </div>
+</div>
+
+<div class="identity-modal" id="invite-modal">
+  <div class="identity-card" style="max-width:480px;">
+    <h2>Invite people</h2>
+    <p class="muted" style="margin:4px 0 12px 0;">Paste emails only, one per line — no need to know their name yet. Whatever they type when they sign up becomes their name automatically.</p>
+    <textarea id="invite-emails-text" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px; resize:vertical;" placeholder="jamie.rivera@company.com
+alex.chen@company.com
+sam.taylor@company.com"></textarea>
+    <div class="muted" id="invite-emails-preview" style="font-size:12px; margin-top:8px;">Nothing pasted yet.</div>
+
+    <div id="invite-dept-row" style="margin-top:14px; display:none;">
+      <label style="font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Department</label>
+      <select id="invite-dept-pick"></select>
+    </div>
+    <div style="margin-top:14px;">
+      <label style="font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Team</label>
+      <select id="invite-team-pick"></select>
+    </div>
+    <div style="margin-top:14px;">
+      <label style="font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Level</label>
+      <div class="m-level-cell" id="invite-level-pick">
+        <label class="chip-check"><input type="radio" name="invite-level" value="IC1" checked> IC1</label>
+        <label class="chip-check"><input type="radio" name="invite-level" value="IC2"> IC2</label>
+        <label class="chip-check"><input type="radio" name="invite-level" value="IC3"> IC3</label>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <label style="font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Role</label>
+      <div class="m-level-cell">
+        <label class="chip-check"><input type="radio" name="invite-role" value="" checked> Viewer</label>
+        <label class="chip-check"><input type="radio" name="invite-role" value="manager"> Manager</label>
+        <label class="chip-check"><input type="radio" name="invite-role" value="admin"> Admin</label>
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px;">
+      <div class="spacer"></div>
+      <button class="btn secondary small" id="invite-cancel">Cancel</button>
+      <button class="btn small" id="invite-confirm">Create invites</button>
     </div>
   </div>
 </div>
@@ -1191,6 +1259,16 @@ window.rotaReady = (async function boot(){
         await setDoc(doc(db,'member_contacts', unclaimedId), { email:user.email, authUid:user.uid });
         await setDoc(doc(db,'claimed_links', user.uid), { memberId: unclaimedId });
         await deleteDoc(doc(db, 'signup_requests', user.uid)).catch(()=>{});
+        // Email-only invite (no name assigned yet) — use the name they just typed at signup.
+        if(user.displayName){
+          try{
+            const memberRef = doc(db, 'app_members', unclaimedId);
+            const memberSnap = await getDoc(memberRef);
+            if(memberSnap.exists() && (!memberSnap.data().name || memberSnap.data().name.trim()==='')){
+              await updateDoc(memberRef, { name: user.displayName });
+            }
+          }catch(e){ console.warn('Could not set name from signup (non-fatal)', e); }
+        }
         return { status:'approved', bootstrap:false, uid:user.uid, email:user.email, name:user.displayName||user.email };
       }
     }catch(e){ console.warn('Could not check for a pre-created invite match (non-fatal)', e); }
@@ -2181,7 +2259,64 @@ if(memberSearchInput && !memberSearchInput.dataset.wired){
   document.getElementById('member-filter-level').addEventListener('change', applyMemberFilters);
   document.getElementById('member-filter-role').addEventListener('change', applyMemberFilters);
 }
+function renderInvitesCard(){
+  const card = document.getElementById('invites-card');
+  const wrap = document.getElementById('invites-list');
+  if(!card || !wrap) return;
+  const invited = teamMembers().filter(m=> memberContacts[m.id] && memberContacts[m.id].email);
+  if(invited.length===0){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  document.getElementById('invites-team-label').textContent = '— ' + (state.teams.find(t=>t.id===currentTeamId)?.name || '');
+  const pending = invited.filter(m=> !memberContacts[m.id].authUid);
+  const registered = invited.filter(m=> memberContacts[m.id].authUid);
+  document.getElementById('invites-summary').textContent = `${registered.length} registered, ${pending.length} pending`;
+  const emailAllBtn = document.getElementById('btn-email-all-pending');
+  emailAllBtn.disabled = pending.length===0;
+  emailAllBtn.textContent = pending.length>0 ? `Email all pending (${pending.length})` : 'No one pending';
+
+  wrap.innerHTML = invited.map(m=>{
+    const contact = memberContacts[m.id];
+    const isPending = !contact.authUid;
+    return `<div class="invite-row">
+      <span class="invite-status-dot ${isPending?'pending':'registered'}" title="${isPending?'Pending — has not signed in yet':'Registered — signed in'}"></span>
+      <span class="invite-name">${m.name ? escHtml(m.name) : '<span class="muted" style="font-weight:400;">(name pending)</span>'}</span>
+      <span class="muted invite-email">${escHtml(contact.email)}</span>
+      <div class="spacer"></div>
+      ${isPending
+        ? `<button type="button" class="btn secondary small btn-copy-invite" data-mid="${m.id}">Copy link</button><button type="button" class="btn secondary small btn-email-invite" data-mid="${m.id}">Email</button>`
+        : `<span class="muted" style="font-size:11px;">Joined</span>`}
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.btn-copy-invite').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const info = buildInviteLink(btn.dataset.mid);
+      if(!info) return;
+      try{ await navigator.clipboard.writeText(info.link); showToast('Invite link copied'); }
+      catch(e){ showToast('Could not copy automatically — link: '+info.link); }
+    });
+  });
+  wrap.querySelectorAll('.btn-email-invite').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const info = buildInviteLink(btn.dataset.mid);
+      if(!info) return;
+      const {subject, body} = emailInviteSubjectBody(info);
+      window.location.href = `mailto:${encodeURIComponent(info.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    });
+  });
+}
+document.getElementById('btn-email-all-pending').addEventListener('click', ()=>{
+  const pending = teamMembers().filter(m=> memberContacts[m.id] && memberContacts[m.id].email && !memberContacts[m.id].authUid);
+  if(pending.length===0) return;
+  const teamName = state.teams.find(t=>t.id===currentTeamId)?.name || 'the team';
+  const genericLink = `${window.location.origin}/login.html`;
+  const subject = `You're invited to Schedule`;
+  const body = `Hi all,\n\nYou've each been added to ${teamName}'s schedule. Click the link below and create an account using the same work email this was sent to — you'll see your schedule right away, no approval needed:\n\n${genericLink}\n\nThanks!`;
+  const bcc = pending.map(m=>memberContacts[m.id].email).join(',');
+  window.location.href = `mailto:?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  logAudit('invite.email_all_pending', { teamId: currentTeamId, count: pending.length });
+});
 function renderTeamTab(){
+  renderInvitesCard();
   const wrap = document.getElementById('team-table-wrap');
   const label = document.getElementById('people-team-label');
   if(label){ const t = currentTeam(); label.textContent = t ? `— viewing ${t.name}` : ''; }
@@ -2219,12 +2354,16 @@ function renderTeamTab(){
     const roleBadge = m.role==='admin' ? `<span class="admin-badge" title="Full access, everywhere">Admin</span>`
       : m.role==='manager' ? `<span class="admin-badge manager-badge" title="Full access within ${escAttr((state.departments.find(d=>d.id===m.managerDeptId)||{}).name||'their department')}">Manager</span>`
       : '';
+    const contact = memberContacts[m.id];
+    const pendingInviteBadge = (contact && contact.email && !contact.authUid)
+      ? `<span class="admin-badge pending-invite-badge" title="Has an email on file but hasn't signed in yet — copy their invite link to send it">Waiting to join</span>`
+      : '';
     html += `<div class="member-card" data-mid="${m.id}" data-search="${escAttr((m.name+' '+((memberContacts[m.id]&&memberContacts[m.id].email)||'')).toLowerCase())}" data-levels="${escAttr((m.levels||[]).join(','))}" data-role="${m.role||'viewer'}">
       <div class="member-card-head">
         <input type="checkbox" class="card-select-check" data-mid="${m.id}">
         <button class="card-expand-toggle" title="Expand">${chevronSvg}</button>
-        <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="Name">
-        <div class="member-card-summary">${roleBadge}${levelTags}</div>
+        <input type="text" class="m-name" value="${escAttr(m.name)}" placeholder="${m.name?'Name':'Name (set automatically when they join)'}">
+        <div class="member-card-summary">${roleBadge}${pendingInviteBadge}${levelTags}</div>
         <div class="row-actions">
           <button class="btn-remove-x btn-del-member" title="Remove">×</button>
         </div>
@@ -2235,6 +2374,7 @@ function renderTeamTab(){
           <div class="m-col">
             <div class="m-col-label">Profile</div>
             <div class="field"><label>Email</label><input type="email" class="m-email" value="${escAttr((memberContacts[m.id]&&memberContacts[m.id].email)||'')}"><div class="field-error email-dupe-error"></div></div>
+            ${pendingInviteBadge ? `<div style="display:flex; gap:6px; margin-bottom:12px;"><button type="button" class="btn secondary small btn-copy-invite" data-mid="${m.id}">Copy link</button><button type="button" class="btn secondary small btn-email-invite" data-mid="${m.id}">Email invite</button></div>` : ''}
             <div class="field"><label>Team</label><select class="m-team">${state.teams.map(t=>`<option value="${t.id}" ${t.id===m.teamId?'selected':''}>${escHtml(t.name)}</option>`).join('')}</select></div>
           </div>
           <div class="m-col">
@@ -2501,6 +2641,39 @@ async function restoreMemberAccess(uid, wasManager, memberId){
     if(memberId) await setDoc(doc(db,'claimed_links', uid), { memberId }).catch(()=>{});
   }catch(e){ console.warn('Could not restore access (non-fatal)', e); }
 }
+function buildInviteLink(mid){
+  const m = state.members.find(x=>x.id===mid);
+  const email = (memberContacts[mid]&&memberContacts[mid].email) || '';
+  if(!email) return null;
+  return { email, name: m?.name||'', link: `${window.location.origin}/login.html?invite_email=${encodeURIComponent(email)}&invite_name=${encodeURIComponent(m?.name||'')}` };
+}
+function emailInviteSubjectBody(info){
+  const teamName = state.teams.find(t=>t.id===currentTeamId)?.name || 'the team';
+  const subject = `You're invited to Schedule`;
+  const firstName = (info.name||'').split(' ')[0] || 'there';
+  const body = `Hi ${firstName},\n\nYou've been added to ${teamName}'s schedule. Click the link below to set a password and see your schedule right away:\n\n${info.link}\n\nThanks!`;
+  return { subject, body };
+}
+  wrap.querySelectorAll('.btn-copy-invite').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const info = buildInviteLink(btn.dataset.mid);
+      if(!info){ showToast("No email on file for this person yet"); return; }
+      try{
+        await navigator.clipboard.writeText(info.link);
+        showToast('Invite link copied');
+      }catch(e){
+        showToast('Could not copy automatically — link: '+info.link);
+      }
+    });
+  });
+  wrap.querySelectorAll('.btn-email-invite').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const info = buildInviteLink(btn.dataset.mid);
+      if(!info){ showToast("No email on file for this person yet"); return; }
+      const {subject, body} = emailInviteSubjectBody(info);
+      window.location.href = `mailto:${encodeURIComponent(info.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    });
+  });
   wrap.querySelectorAll('.btn-del-member').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const card = btn.closest('.member-card');
@@ -2639,13 +2812,18 @@ function openBulkImport(mode){
   const title = document.getElementById('bulk-import-title');
   const confirmBtn = document.getElementById('bulk-import-confirm');
   const textEl = document.getElementById('bulk-import-text');
+  const roleRow = document.getElementById('bulk-import-role-row');
   textEl.value = '';
   if(mode==='people'){
     title.textContent = 'Add multiple people';
     confirmBtn.textContent = 'Add people';
+    roleRow.style.display = '';
+    document.getElementById('bulk-import-team-name').textContent = state.teams.find(t=>t.id===currentTeamId)?.name || 'this team';
+    document.querySelector('input[name="bulk-role"][value=""]').checked = true;
   } else {
     title.textContent = 'Add multiple tasks';
     confirmBtn.textContent = 'Add tasks';
+    roleRow.style.display = 'none';
   }
   updateBulkImportPreview();
   document.getElementById('bulk-import-modal').classList.add('open');
@@ -2668,18 +2846,23 @@ document.getElementById('bulk-import-confirm').addEventListener('click', async (
   if(rows.length===0){ showToast('Paste at least one name first'); return; }
   closeBulkImport();
   if(bulkImportMode==='people'){
+    const role = document.querySelector('input[name="bulk-role"]:checked')?.value || null;
     const created = [];
     rows.forEach(row=>{
       const id = 'm_'+Math.random().toString(36).slice(2,9);
       const level = LEVELS.includes(row.level) ? row.level : 'IC1';
-      state.members.push({ id, name:row.name, levels:[level], isAdmin:false, teamId:currentTeamId, eligibility: elig([]) });
+      state.members.push({
+        id, name:row.name, levels:[level],
+        isAdmin: role==='admin', role: role||null, managerDeptId: null,
+        teamId:currentTeamId, eligibility: elig([])
+      });
       created.push({ id, email: row.email });
     });
     const ok = await persistMembers();
     if(ok){
       for(const c of created){ if(c.email) await saveContact(c.id, c.email, null); }
       showToast(`Added ${rows.length} ${rows.length===1?'person':'people'}`);
-      logAudit('member.bulk_add', { count: rows.length, teamId: currentTeamId });
+      logAudit('member.bulk_add', { count: rows.length, teamId: currentTeamId, role: role||'viewer' });
     }
     renderTeamTab();
     renderTeamsList();
@@ -2698,6 +2881,90 @@ document.getElementById('bulk-import-confirm').addEventListener('click', async (
     renderTasksTab();
     renderReqTab();
   }
+});
+
+// ---- Invite people: email-only, access assigned up front, name filled in automatically
+// when they actually register (see the self-claim-name rule in firestore.rules) ----
+function parseInviteEmails(text){
+  return text.split('\n')
+    .map(l=>l.replace(/\r$/,'').trim())
+    .filter(l=>l.length>0)
+    .filter(l=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(l));
+}
+function openInviteModal(){
+  document.getElementById('invite-emails-text').value = '';
+  const deptRow = document.getElementById('invite-dept-row');
+  const deptPick = document.getElementById('invite-dept-pick');
+  const teamPick = document.getElementById('invite-team-pick');
+  if(state.departments.length>0){
+    deptRow.style.display = '';
+    deptPick.innerHTML = state.departments.map(d=>`<option value="${d.id}">${escHtml(d.name)}</option>`).join('')
+      + `<option value="__ungrouped__">Ungrouped teams</option>`;
+    const curDept = state.teams.find(t=>t.id===currentTeamId)?.departmentId;
+    deptPick.value = curDept || (state.departments[0]?.id || '__ungrouped__');
+  } else {
+    deptRow.style.display = 'none';
+  }
+  refreshInviteTeamOptions();
+  document.querySelector('input[name="invite-level"][value="IC1"]').checked = true;
+  document.querySelector('input[name="invite-role"][value=""]').checked = true;
+  updateInviteEmailsPreview();
+  document.getElementById('invite-modal').classList.add('open');
+  document.getElementById('invite-emails-text').focus();
+}
+function refreshInviteTeamOptions(){
+  const teamPick = document.getElementById('invite-team-pick');
+  const deptPick = document.getElementById('invite-dept-pick');
+  let teams;
+  if(state.departments.length>0){
+    teams = teamsInDepartment(deptPick.value);
+  } else {
+    teams = state.teams;
+  }
+  teamPick.innerHTML = teams.map(t=>`<option value="${t.id}" ${t.id===currentTeamId?'selected':''}>${escHtml(t.name)}</option>`).join('');
+}
+document.getElementById('invite-dept-pick').addEventListener('change', refreshInviteTeamOptions);
+function closeInviteModal(){
+  document.getElementById('invite-modal').classList.remove('open');
+}
+function updateInviteEmailsPreview(){
+  const emails = parseInviteEmails(document.getElementById('invite-emails-text').value);
+  const preview = document.getElementById('invite-emails-preview');
+  if(emails.length===0){ preview.textContent = 'Nothing pasted yet.'; return; }
+  preview.textContent = `${emails.length} invite${emails.length===1?'':'s'} will be created: ${emails.slice(0,4).join(', ')}${emails.length>4?`, +${emails.length-4} more`:''}`;
+}
+document.getElementById('invite-emails-text').addEventListener('input', updateInviteEmailsPreview);
+document.getElementById('btn-invite-people').addEventListener('click', openInviteModal);
+document.getElementById('invite-cancel').addEventListener('click', closeInviteModal);
+document.getElementById('invite-confirm').addEventListener('click', async ()=>{
+  const emails = parseInviteEmails(document.getElementById('invite-emails-text').value);
+  if(emails.length===0){ showToast('Paste at least one valid email first'); return; }
+  const teamId = document.getElementById('invite-team-pick').value;
+  if(!teamId){ showToast('No team available to invite into'); return; }
+  const level = document.querySelector('input[name="invite-level"]:checked')?.value || 'IC1';
+  const role = document.querySelector('input[name="invite-role"]:checked')?.value || null;
+  const deptPick = document.getElementById('invite-dept-pick');
+  const managerDeptId = (role==='manager' && state.departments.length>0 && deptPick.value!=='__ungrouped__') ? deptPick.value : null;
+  closeInviteModal();
+
+  const created = [];
+  emails.forEach(email=>{
+    const id = 'm_'+Math.random().toString(36).slice(2,9);
+    state.members.push({
+      id, name:'', levels:[level],
+      isAdmin: role==='admin', role: role||null, managerDeptId,
+      teamId, eligibility: elig([])
+    });
+    created.push({ id, email });
+  });
+  const ok = await persistMembers();
+  if(ok){
+    for(const c of created){ await saveContact(c.id, c.email, null); }
+    showToast(`Invited ${emails.length} ${emails.length===1?'person':'people'}`);
+    logAudit('member.invite', { count: emails.length, teamId, role: role||'viewer' });
+  }
+  if(teamId===currentTeamId){ renderTeamTab(); } else { renderInvitesCard(); }
+  renderTeamsList();
 });
 document.getElementById('btn-bulk-add-member').addEventListener('click', ()=> openBulkImport('people'));
 document.getElementById('btn-bulk-add-task').addEventListener('click', ()=> openBulkImport('tasks'));
