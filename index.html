@@ -695,6 +695,8 @@
             <button id="grand-wk-next">›</button>
           </div>
           <div class="spacer"></div>
+          <span class="muted" id="grand-sched-status"></span>
+          <button class="btn small" id="btn-grand-generate">Generate schedule</button>
         </div>
       </div>
       <div class="card" style="overflow-x:auto;">
@@ -3802,6 +3804,33 @@ async function renderGrandBalancePageTab(){
   }
 }
 document.getElementById('grand-wk-prev').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,-7); renderGrandTab(); });
+document.getElementById('btn-grand-generate').addEventListener('click', ()=>{
+  if(!currentDepartmentId) return;
+  const teams = teamsInDepartment(currentDepartmentId);
+  if(teams.length===0){ showToast('No teams in this department yet'); return; }
+  askConfirm(
+    `Generate the schedule for ${fmtWeek(grandWeekMonday)} across every team in this department — ${teams.map(t=>t.name).join(', ')}? This overwrites each team's existing schedule for that week, same as using Generate on their own Schedule tab, just for all of them at once.`,
+    'Generate for all teams',
+    async ()=>{
+      const statusEl = document.getElementById('grand-sched-status');
+      statusEl.textContent = 'Generating…';
+      for(const team of teams){
+        statusEl.textContent = `Generating — ${team.name}…`;
+        await withBorrowedTeamContext(team.id, grandWeekMonday, async ()=>{
+          balanceCache = null;
+          const sched = await generateWeek(grandWeekMonday);
+          currentSchedule = sched;
+          await saveWeek(iso(currentWeekMonday), sched);
+        });
+      }
+      statusEl.textContent = '';
+      balanceCache = null;
+      logAudit('grand_schedule.generate_all', { department: currentDepartmentId, teams: teams.map(t=>t.name).join(', '), week: iso(grandWeekMonday) });
+      showToast(`Generated schedules for ${teams.length} team${teams.length===1?'':'s'}`);
+      renderGrandScheduleGrid();
+    }
+  );
+});
 document.getElementById('grand-wk-next').addEventListener('click', ()=>{ grandWeekMonday = addDays(grandWeekMonday,7); renderGrandTab(); });
 
 // Runs fn() with currentTeamId/currentWeekMonday/currentSchedule temporarily pointed at a
