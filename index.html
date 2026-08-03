@@ -1253,9 +1253,15 @@ window.rotaReady = (async function boot(){
     // (a "we know you're joining" invite) with this exact email, just not linked to any
     // account yet. Claim it instead of creating a second, duplicate person.
     try{
+      console.log('[invite check] signed-in user email:', JSON.stringify(user.email));
       const snap = await getDocs(query(collection(db,'member_contacts'), where('email','==', user.email)));
+      console.log('[invite check] member_contacts docs matching that exact email:', snap.size);
       let unclaimedId = null;
-      snap.forEach(d=>{ if(!unclaimedId && !d.data().authUid) unclaimedId = d.id; });
+      snap.forEach(d=>{
+        console.log('[invite check] match:', d.id, JSON.stringify(d.data()));
+        if(!unclaimedId && !d.data().authUid) unclaimedId = d.id;
+      });
+      console.log('[invite check] unclaimed record chosen:', unclaimedId || '(none — falling through to pending queue)');
       if(unclaimedId){
         await setDoc(doc(db,'member_contacts', unclaimedId), { email:user.email, authUid:user.uid });
         await setDoc(doc(db,'claimed_links', user.uid), { memberId: unclaimedId });
@@ -1272,7 +1278,7 @@ window.rotaReady = (async function boot(){
         }
         return { status:'approved', bootstrap:false, uid:user.uid, email:user.email, name:user.displayName||user.email };
       }
-    }catch(e){ console.warn('Could not check for a pre-created invite match (non-fatal)', e); }
+    }catch(e){ console.error('[invite check] the query or claim itself failed:', e); }
     const reqRef = doc(db, 'signup_requests', user.uid);
     let reqSnap = await getDoc(reqRef);
     if(!reqSnap.exists()){
