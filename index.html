@@ -1952,7 +1952,10 @@ async function loadMemberContactsForAdmin(){
 async function saveContact(memberId, email, authUid){
   try{
     const { db, doc, setDoc } = window.rotaDb;
-    const contact = { email: email||'', authUid: authUid||null };
+    // Lowercased + trimmed — Firebase Auth itself always lowercases emails on signup, so if
+    // what's stored here isn't also lowercased, the self-claim rule's case-sensitive match
+    // silently fails for anyone whose email was pasted with different casing than they type.
+    const contact = { email: (email||'').trim().toLowerCase(), authUid: authUid||null };
     await setDoc(doc(db, 'member_contacts', memberId), contact);
     memberContacts[memberId] = contact;
   }catch(e){ console.error('Could not save contact info', e); }
@@ -2308,7 +2311,7 @@ document.getElementById('btn-email-all-pending').addEventListener('click', ()=>{
   const pending = teamMembers().filter(m=> memberContacts[m.id] && memberContacts[m.id].email && !memberContacts[m.id].authUid);
   if(pending.length===0) return;
   const teamName = state.teams.find(t=>t.id===currentTeamId)?.name || 'the team';
-  const genericLink = `${window.location.origin}/login.html`;
+  const genericLink = `${window.location.origin}/login.html?invited=1`;
   const subject = `You're invited to Schedule`;
   const body = `Hi all,\n\nYou've each been added to ${teamName}'s schedule. Click the link below and create an account using the same work email this was sent to — you'll see your schedule right away, no approval needed:\n\n${genericLink}\n\nThanks!`;
   const bcc = pending.map(m=>memberContacts[m.id].email).join(',');
@@ -2945,10 +2948,23 @@ document.getElementById('invite-confirm').addEventListener('click', async ()=>{
   const role = document.querySelector('input[name="invite-role"]:checked')?.value || null;
   const deptPick = document.getElementById('invite-dept-pick');
   const managerDeptId = (role==='manager' && state.departments.length>0 && deptPick.value!=='__ungrouped__') ? deptPick.value : null;
+
+  // Skip anything already on file — pending or registered — so a re-paste or overlapping
+  // batch can't silently create a second record sharing the same email. Auto-link matches by
+  // email alone, and two unclaimed records with the same address would make that ambiguous.
+  const existingEmails = new Set(Object.values(memberContacts).map(c=>(c.email||'').toLowerCase()).filter(Boolean));
+  const toCreate = [], skipped = [];
+  const seenThisBatch = new Set();
+  emails.forEach(email=>{
+    const key = email.toLowerCase();
+    if(existingEmails.has(key) || seenThisBatch.has(key)) skipped.push(email);
+    else { toCreate.push(email); seenThisBatch.add(key); }
+  });
+  if(toCreate.length===0){ showToast('Everyone pasted already has a record — nothing new to invite'); return; }
   closeInviteModal();
 
   const created = [];
-  emails.forEach(email=>{
+  toCreate.forEach(email=>{
     const id = 'm_'+Math.random().toString(36).slice(2,9);
     state.members.push({
       id, name:'', levels:[level],
@@ -2960,8 +2976,9 @@ document.getElementById('invite-confirm').addEventListener('click', async ()=>{
   const ok = await persistMembers();
   if(ok){
     for(const c of created){ await saveContact(c.id, c.email, null); }
-    showToast(`Invited ${emails.length} ${emails.length===1?'person':'people'}`);
-    logAudit('member.invite', { count: emails.length, teamId, role: role||'viewer' });
+    const skipNote = skipped.length>0 ? ` (skipped ${skipped.length} already on file: ${skipped.join(', ')})` : '';
+    showToast(`Invited ${toCreate.length} ${toCreate.length===1?'person':'people'}${skipNote}`);
+    logAudit('member.invite', { count: toCreate.length, skipped: skipped.length, teamId, role: role||'viewer' });
   }
   if(teamId===currentTeamId){ renderTeamTab(); } else { renderInvitesCard(); }
   renderTeamsList();
