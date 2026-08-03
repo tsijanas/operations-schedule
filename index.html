@@ -1251,19 +1251,33 @@ window.rotaReady = (async function boot(){
     }
     // Not approved yet — but an admin may have already created this person's row manually
     // (a "we know you're joining" invite) with this exact email, just not linked to any
-    // account yet. Claim it instead of creating a second, duplicate person.
+    // account yet. Claim it instead of creating a second, duplicate person. Looked up via a
+    // direct email_index document read (email -> memberId), not a collection query — a query
+    // whose read rule depends on more than the filtered field can be rejected outright by
+    // Firestore even when the one matching document would itself be perfectly readable, and
+    // this sidesteps that uncertainty entirely rather than depending on it working.
     try{
-      console.log('[invite check] signed-in user email:', JSON.stringify(user.email));
-      const snap = await getDocs(query(collection(db,'member_contacts'), where('email','==', user.email)));
-      console.log('[invite check] member_contacts docs matching that exact email:', snap.size);
+      const normalizedEmail = (user.email||'').trim().toLowerCase();
+      const idxKey = normalizedEmail.replace(/\//g, '_SLASH_');
+      console.log('[invite check] looking up email_index for:', JSON.stringify(normalizedEmail));
+      const idxSnap = await getDoc(doc(db, 'email_index', idxKey));
       let unclaimedId = null;
-      snap.forEach(d=>{
-        console.log('[invite check] match:', d.id, JSON.stringify(d.data()));
-        if(!unclaimedId && !d.data().authUid) unclaimedId = d.id;
-      });
+      if(idxSnap.exists()){
+        const candidateId = idxSnap.data().memberId;
+        console.log('[invite check] email_index points to member:', candidateId);
+        const contactSnap = await getDoc(doc(db, 'member_contacts', candidateId));
+        if(contactSnap.exists()){
+          console.log('[invite check] that member_contacts record:', JSON.stringify(contactSnap.data()));
+          if(!contactSnap.data().authUid) unclaimedId = candidateId;
+        } else {
+          console.log('[invite check] email_index pointed at a member_contacts record that no longer exists');
+        }
+      } else {
+        console.log('[invite check] no email_index entry for this email — nobody invited it');
+      }
       console.log('[invite check] unclaimed record chosen:', unclaimedId || '(none — falling through to pending queue)');
       if(unclaimedId){
-        await setDoc(doc(db,'member_contacts', unclaimedId), { email:user.email, authUid:user.uid });
+        await setDoc(doc(db,'member_contacts', unclaimedId), { email:normalizedEmail, authUid:user.uid });
         await setDoc(doc(db,'claimed_links', user.uid), { memberId: unclaimedId });
         await deleteDoc(doc(db, 'signup_requests', user.uid)).catch(()=>{});
         // Email-only invite (no name assigned yet) — use the name they just typed at signup.
@@ -1278,7 +1292,7 @@ window.rotaReady = (async function boot(){
         }
         return { status:'approved', bootstrap:false, uid:user.uid, email:user.email, name:user.displayName||user.email };
       }
-    }catch(e){ console.error('[invite check] the query or claim itself failed:', e); }
+    }catch(e){ console.error('[invite check] the lookup or claim itself failed:', e); }
     const reqRef = doc(db, 'signup_requests', user.uid);
     let reqSnap = await getDoc(reqRef);
     if(!reqSnap.exists()){
@@ -1940,6 +1954,7 @@ document.getElementById('btn-submit-idea').addEventListener('click', async ()=>{
 // their OWN contact doc (a query constrained to their own uid), which is how identity
 // resolution finds "which member row is me" without needing broad read access.
 let memberContacts = {}; // memberId -> {email, authUid} — populated only in admin sessions
+let memberContactsIndexKeys = {}; // memberId -> the email_index doc key currently pointing at them
 async function loadMemberContactsForAdmin(){
   if(viewMode !== 'admin') return;
   try{
@@ -1948,6 +1963,17 @@ async function loadMemberContactsForAdmin(){
     const existingIds = new Set();
     memberContacts = {};
     snap.forEach(d=>{ existingIds.add(d.id); memberContacts[d.id] = d.data(); });
+
+    // Backfill email_index for anything that predates it (invites created before this lookup
+    // existed) — cheap and idempotent, so it's simplest to just always ensure it's consistent
+    // rather than track which contacts still need it.
+    for(const [memberId, contact] of Object.entries(memberContacts)){
+      if(contact.email){
+        const key = emailIndexKey(contact.email);
+        await setDoc(doc(db, 'email_index', key), { memberId }).catch(()=>{});
+        memberContactsIndexKeys[memberId] = key;
+      }
+    }
 
     // One-time migration: older member docs may still carry email/authUid inline (from before
     // this split existed). Fan those into member_contacts, then strip them from app_members.
@@ -1968,22 +1994,41 @@ async function loadMemberContactsForAdmin(){
     }
   }catch(e){ console.error('Could not load member contacts', e); }
 }
+// Firestore document IDs can't contain "/" — real emails essentially never do, but guard it
+// anyway rather than let one weird address throw.
+function emailIndexKey(email){ return (email||'').trim().toLowerCase().replace(/\//g, '_SLASH_'); }
 async function saveContact(memberId, email, authUid){
   try{
-    const { db, doc, setDoc } = window.rotaDb;
+    const { db, doc, setDoc, deleteDoc } = window.rotaDb;
     // Lowercased + trimmed — Firebase Auth itself always lowercases emails on signup, so if
     // what's stored here isn't also lowercased, the self-claim rule's case-sensitive match
     // silently fails for anyone whose email was pasted with different casing than they type.
-    const contact = { email: (email||'').trim().toLowerCase(), authUid: authUid||null };
+    const normalized = (email||'').trim().toLowerCase();
+    const contact = { email: normalized, authUid: authUid||null };
     await setDoc(doc(db, 'member_contacts', memberId), contact);
     memberContacts[memberId] = contact;
+    // Keep the direct lookup index in sync — this is what login uses to find "does an invite
+    // exist for this email" without a collection query. Clean up any previous email's index
+    // entry first, in case this contact's email just changed to something else.
+    const prevKey = memberContactsIndexKeys[memberId];
+    if(prevKey && prevKey !== emailIndexKey(normalized)){
+      await deleteDoc(doc(db, 'email_index', prevKey)).catch(()=>{});
+    }
+    if(normalized){
+      const key = emailIndexKey(normalized);
+      await setDoc(doc(db, 'email_index', key), { memberId });
+      memberContactsIndexKeys[memberId] = key;
+    }
   }catch(e){ console.error('Could not save contact info', e); }
 }
 async function deleteContact(memberId){
   try{
     const { db, doc, deleteDoc } = window.rotaDb;
     await deleteDoc(doc(db, 'member_contacts', memberId));
+    const key = memberContactsIndexKeys[memberId];
+    if(key) await deleteDoc(doc(db, 'email_index', key)).catch(()=>{});
     delete memberContacts[memberId];
+    delete memberContactsIndexKeys[memberId];
   }catch(e){ console.error('Could not delete contact info', e); }
 }
 // Find "my own" member id from my auth uid — a query constrained to exactly my own uid, which

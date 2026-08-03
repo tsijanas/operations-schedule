@@ -99,6 +99,16 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // ---- Direct email -> memberId lookup, used only so login can find "does an invite exist
+    // for this email" with a single, unambiguous document read instead of a collection query.
+    // A query whose read rule depends on more than the filtered field can be rejected by
+    // Firestore outright, even when the one matching document would itself be perfectly
+    // readable — this index exists specifically to avoid depending on that working.
+    match /email_index/{emailKey} {
+      allow read: if isSignedIn();
+      allow write: if isOwner() || isManagerUid();
+    }
+
     // ---- Contact info (email, authUid), split out of app_members. Everyone approved can read
     // the roster (app_members) to see names/teams/schedules, but email addresses and the
     // technical auth-account link are Manager/owner-only — EXCEPT each person can look up their
