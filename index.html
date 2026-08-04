@@ -565,6 +565,7 @@
 
     <div class="sidebar-panel admin-only">
       <button class="nav-item admin-only" data-tab="balance">Rotation balance</button>
+      <button class="nav-item admin-only" data-tab="registry">Registry</button>
       <button class="nav-item admin-only" data-tab="ideas">Ideas &amp; Bugs</button>
       <button class="nav-item admin-only" data-tab="data">Data</button>
       <div class="sidebar-foot admin-only">Autosaves to the cloud when that's available — check the Data tab to back up or move your data manually otherwise.</div>
@@ -636,6 +637,11 @@
       <div class="card">
         <h3>Unassigned <span class="muted" style="font-weight:400; font-size:12px;">— people without a team yet. This is where new logins will land once accounts are live, ready for you to place them.</span></h3>
         <div id="unassigned-list"></div>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <h3>Standard tasks by level</h3>
+        <div class="hint">What's normally open to each level on this team — the same setting each task's own Level picker uses in Tasks, just organized by level instead of by task, since that's usually the more useful direction to think in. New people start eligible for whatever's checked here for their level; every person's own Eligible Tasks stays individually editable afterward regardless of what's set here.</div>
+        <div id="level-tasks-wrap"></div>
       </div>
     </div>
 
@@ -914,6 +920,28 @@
           </div>
         </div>
         <div id="ideas-list"><div class="muted" style="font-size:12.5px;">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- REGISTRY TAB -->
+    <div class="tab-panel" id="tab-registry">
+      <div class="page-head">
+        <h1>Registry</h1>
+        <p>Every person across every team — pending or registered — in one place, with a single way to remove someone entirely.</p>
+      </div>
+      <div class="card">
+        <div class="row" style="margin-bottom:14px;">
+          <input type="text" id="registry-search" placeholder="Search name or email…" style="max-width:220px;">
+          <select id="registry-filter-team"><option value="">All teams</option></select>
+          <select id="registry-filter-status">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="registered">Registered</option>
+          </select>
+          <div class="spacer"></div>
+          <span class="muted" id="registry-summary"></span>
+        </div>
+        <div id="registry-list"></div>
       </div>
     </div>
 
@@ -2170,6 +2198,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
     if(btn.dataset.tab==='myholidays') renderViewerHolidaysTab();
     if(btn.dataset.tab==='schedule') renderScheduleTab();
     if(btn.dataset.tab==='balance') renderBalanceTab();
+    if(btn.dataset.tab==='registry') renderRegistryTab();
     if(btn.dataset.tab==='holidays') renderHolidaysTab();
     if(btn.dataset.tab==='data'){ renderAuditLog(); renderDeptSetupCard(); }
     if(btn.dataset.tab==='ideas') renderIdeasTab();
@@ -2326,6 +2355,72 @@ if(memberSearchInput && !memberSearchInput.dataset.wired){
   document.getElementById('member-filter-level').addEventListener('change', applyMemberFilters);
   document.getElementById('member-filter-role').addEventListener('change', applyMemberFilters);
 }
+function renderRegistryTab(){
+  const teamSel = document.getElementById('registry-filter-team');
+  teamSel.innerHTML = '<option value="">All teams</option>' + state.teams.map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join('');
+  const searchInput = document.getElementById('registry-search');
+  const statusSel = document.getElementById('registry-filter-status');
+  if(!searchInput.dataset.wired){
+    searchInput.dataset.wired = '1';
+    searchInput.addEventListener('input', applyRegistryFilters);
+    teamSel.addEventListener('change', applyRegistryFilters);
+    statusSel.addEventListener('change', applyRegistryFilters);
+  }
+  applyRegistryFilters();
+}
+function applyRegistryFilters(){
+  const wrap = document.getElementById('registry-list');
+  const q = (document.getElementById('registry-search')?.value||'').trim().toLowerCase();
+  const teamFilter = document.getElementById('registry-filter-team')?.value||'';
+  const statusFilter = document.getElementById('registry-filter-status')?.value||'';
+
+  const everyone = state.members.filter(m=> memberContacts[m.id] && memberContacts[m.id].email);
+  const rows = everyone.filter(m=>{
+    const contact = memberContacts[m.id];
+    const isPending = !contact.authUid;
+    const matchesQ = !q || (m.name||'').toLowerCase().includes(q) || (contact.email||'').toLowerCase().includes(q);
+    const matchesTeam = !teamFilter || m.teamId===teamFilter;
+    const matchesStatus = !statusFilter || (statusFilter==='pending')===isPending;
+    return matchesQ && matchesTeam && matchesStatus;
+  });
+  const pendingCount = everyone.filter(m=>!memberContacts[m.id].authUid).length;
+  document.getElementById('registry-summary').textContent = `${everyone.length} total — ${pendingCount} pending, ${everyone.length-pendingCount} registered`;
+
+  if(rows.length===0){ wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">Nobody matches.</div>`; return; }
+  wrap.innerHTML = rows.map(m=>{
+    const contact = memberContacts[m.id];
+    const isPending = !contact.authUid;
+    const teamName = state.teams.find(t=>t.id===m.teamId)?.name || '—';
+    return `<div class="invite-row">
+      <span class="invite-status-dot ${isPending?'pending':'registered'}" title="${isPending?'Pending — has not signed in yet':'Registered — signed in'}"></span>
+      <span class="invite-name">${m.name?escHtml(m.name):'<span class="muted" style="font-weight:400;">(name pending)</span>'}</span>
+      <span class="muted invite-email">${escHtml(contact.email)}</span>
+      <span class="muted" style="font-size:11px;">${escHtml(teamName)}</span>
+      <div class="spacer"></div>
+      <button type="button" class="btn-remove-x btn-remove-registry" data-mid="${m.id}" title="Remove entirely">×</button>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.btn-remove-registry').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mid = btn.dataset.mid;
+      const m = state.members.find(x=>x.id===mid);
+      if(!m) return;
+      const wasRegistered = !!(memberContacts[mid] && memberContacts[mid].authUid);
+      const emailForMsg = (memberContacts[mid]&&memberContacts[mid].email) || 'this person';
+      const confirmMsg = wasRegistered
+        ? `Remove ${m.name||emailForMsg} entirely? This deletes their record and revokes their access — they'll be signed out and land back on the pending screen if they try to sign in again. Their actual login account isn't deleted by this (that needs a manual step in Firebase Console); this removes everything the app itself controls.`
+        : `Cancel this invite for ${emailForMsg}? This removes it completely — they'd need a brand-new invite to join.`;
+      askConfirm(confirmMsg, 'Remove', async ()=>{
+        const removed = await removePersonEntirely(mid);
+        if(!removed) return;
+        applyRegistryFilters();
+        renderTeamsList();
+        undoRemovePerson(removed);
+        showToast(`Removed ${removed.member.name || removed.contact.email}`, undoLast);
+      });
+    });
+  });
+}
 function renderInvitesCard(){
   const card = document.getElementById('invites-card');
   const wrap = document.getElementById('invites-list');
@@ -2352,8 +2447,28 @@ function renderInvitesCard(){
       ${isPending
         ? `<button type="button" class="btn secondary small btn-copy-invite" data-mid="${m.id}">Copy link</button><button type="button" class="btn secondary small btn-email-invite" data-mid="${m.id}">Email</button>`
         : `<span class="muted" style="font-size:11px;">Joined</span>`}
+      <button type="button" class="btn-remove-x btn-remove-invite" data-mid="${m.id}" title="Remove entirely">×</button>
     </div>`;
   }).join('');
+  wrap.querySelectorAll('.btn-remove-invite').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mid = btn.dataset.mid;
+      const m = state.members.find(x=>x.id===mid);
+      if(!m) return;
+      const wasRegistered = !!(memberContacts[mid] && memberContacts[mid].authUid);
+      const emailForMsg = (memberContacts[mid]&&memberContacts[mid].email) || 'this person';
+      const confirmMsg = wasRegistered
+        ? `Remove ${m.name||'this person'} entirely? This deletes their record and revokes their access — they'll be signed out and land back on the pending screen if they try to sign in again. Their actual login account isn't deleted by this (that needs a manual step in Firebase Console); this removes everything the app itself controls.`
+        : `Cancel this invite for ${emailForMsg}? This removes it completely — they'd need a brand-new invite to join.`;
+      askConfirm(confirmMsg, 'Remove', async ()=>{
+        const removed = await removePersonEntirely(mid);
+        if(!removed) return;
+        renderTeamTab();
+        undoRemovePerson(removed);
+        showToast(`Removed ${removed.member.name || removed.contact.email}`, undoLast);
+      });
+    });
+  });
   wrap.querySelectorAll('.btn-copy-invite').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const info = buildInviteLink(btn.dataset.mid);
@@ -2382,8 +2497,52 @@ document.getElementById('btn-email-all-pending').addEventListener('click', ()=>{
   window.location.href = `mailto:?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   logAudit('invite.email_all_pending', { teamId: currentTeamId, count: pending.length });
 });
+function renderStandardTasksByLevelCard(){
+  const wrap = document.getElementById('level-tasks-wrap');
+  if(!wrap) return;
+  const tasks = sortedTasksForDisplay(state.tasks);
+  if(tasks.length===0){
+    wrap.innerHTML = `<div class="muted" style="font-size:12.5px;">No tasks yet on this team — add some in Tasks first.</div>`;
+    return;
+  }
+  let html = '<table class="req-table"><thead><tr><th style="text-align:left;">Task</th>';
+  LEVELS.forEach(l=> html += `<th>${l}</th>`);
+  html += '</tr></thead><tbody>';
+  tasks.forEach(task=>{
+    const unrestricted = !task.levels || task.levels.length===0;
+    html += `<tr data-task="${task.id}"><td style="font-weight:600; text-align:left;">${escHtml(task.name)}</td>`;
+    LEVELS.forEach(l=>{
+      const checked = unrestricted || task.levels.includes(l);
+      html += `<td><span class="checkbox level-task-check ${checked?'checked':''}" data-level="${escAttr(l)}" role="checkbox" aria-checked="${checked}" tabindex="0">${checkSvg}</span></td>`;
+    });
+    html += `</tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.level-task-check').forEach(cb=>{
+    const toggle = async ()=>{
+      cb.classList.toggle('checked');
+      cb.setAttribute('aria-checked', cb.classList.contains('checked'));
+      const row = cb.closest('tr');
+      const taskId = row.dataset.task;
+      const task = state.tasks.find(t=>t.id===taskId);
+      if(!task) return;
+      const newLevels = LEVELS.filter(l=> row.querySelector(`.level-task-check[data-level="${l}"]`).classList.contains('checked'));
+      task.levels = newLevels;
+      const ok = await safeSet('tasks_'+currentTeamId, state.tasks);
+      if(ok){
+        logAudit('task.level_update', { name: task.name, levels: newLevels.join(', ')||'(open to all)' });
+      }
+      renderTasksTab();
+    };
+    cb.addEventListener('click', toggle);
+    cb.addEventListener('keydown', (e)=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); toggle(); } });
+  });
+}
 function renderTeamTab(){
   renderInvitesCard();
+  renderStandardTasksByLevelCard();
   const wrap = document.getElementById('team-table-wrap');
   const label = document.getElementById('people-team-label');
   if(label){ const t = currentTeam(); label.textContent = t ? `— viewing ${t.name}` : ''; }
@@ -2708,6 +2867,44 @@ async function restoreMemberAccess(uid, wasManager, memberId){
     if(memberId) await setDoc(doc(db,'claimed_links', uid), { memberId }).catch(()=>{});
   }catch(e){ console.warn('Could not restore access (non-fatal)', e); }
 }
+// The full, real removal — everything this app itself controls in Firestore: the member
+// record, holiday history, contact info + email index, and (if they'd registered) their
+// approved/manager-list membership and claimed_links. Returns enough to undo it, or null if
+// there was nothing to remove. Doesn't touch anyone's actual Firebase login account — a client
+// can never delete another person's auth account, only a paid server-side function can, which
+// isn't something this app adds without your say-so.
+async function removePersonEntirely(mid){
+  const member = state.members.find(m=>m.id===mid);
+  if(!member) return null;
+  const wasManager = !!member.isAdmin;
+  const contact = memberContacts[mid] || { email:'', authUid:null };
+  const snapshot = JSON.parse(JSON.stringify(state.members));
+  const holidaySnapshot = { dates: (state.holidays[mid]||[]).slice(), reasons: {...(state.holidayReasons[mid]||{})} };
+  state.members = state.members.filter(m=>m.id!==mid);
+  delete state.holidays[mid];
+  delete state.holidayReasons[mid];
+  await persistMembers();
+  await persistHolidays();
+  await deleteContact(mid);
+  await revokeMemberAccess(contact.authUid, wasManager);
+  logAudit('member.remove', { name: member.name, email: contact.email||'' });
+  return { member, contact, wasManager, snapshot, holidaySnapshot, mid };
+}
+function undoRemovePerson(removed){
+  pushUndo(async ()=>{
+    state.members = removed.snapshot;
+    if(removed.holidaySnapshot.dates.length || Object.keys(removed.holidaySnapshot.reasons).length){
+      state.holidays[removed.mid] = removed.holidaySnapshot.dates;
+      state.holidayReasons[removed.mid] = removed.holidaySnapshot.reasons;
+    }
+    await persistMembers();
+    await persistHolidays();
+    await saveContact(removed.mid, removed.contact.email, removed.contact.authUid);
+    await restoreMemberAccess(removed.contact.authUid, removed.wasManager, removed.mid);
+    renderTeamTab(); renderTeamsList();
+    showToast('Restored');
+  });
+}
 function buildInviteLink(mid){
   const m = state.members.find(x=>x.id===mid);
   const email = (memberContacts[mid]&&memberContacts[mid].email) || '';
@@ -2746,34 +2943,12 @@ function emailInviteSubjectBody(info){
       const card = btn.closest('.member-card');
       const mid = card.dataset.mid;
       const member = state.members.find(m=>m.id===mid);
-      const wasManager = !!member.isAdmin;
-      const contact = memberContacts[mid] || { email:'', authUid:null };
       askConfirm(`Remove ${member.name} from the team? This also drops their holiday history and revokes their access to the app.`, 'Remove', async ()=>{
-        const snapshot = JSON.parse(JSON.stringify(state.members));
-        const holidaySnapshot = { dates: (state.holidays[mid]||[]).slice(), reasons: {...(state.holidayReasons[mid]||{})} };
-        state.members = state.members.filter(m=>m.id!==mid);
-        delete state.holidays[mid];
-        delete state.holidayReasons[mid];
+        const removed = await removePersonEntirely(mid);
+        if(!removed) return;
         renderTeamTab();
-        await persistMembers();
-        await persistHolidays();
-        await deleteContact(mid);
-        await revokeMemberAccess(contact.authUid, wasManager);
-        logAudit('member.remove', { name: member.name, email: contact.email||'' });
-        pushUndo(async ()=>{
-          state.members = snapshot;
-          if(holidaySnapshot.dates.length || Object.keys(holidaySnapshot.reasons).length){
-            state.holidays[mid] = holidaySnapshot.dates;
-            state.holidayReasons[mid] = holidaySnapshot.reasons;
-          }
-          await persistMembers();
-          await persistHolidays();
-          await saveContact(mid, contact.email, contact.authUid);
-          await restoreMemberAccess(contact.authUid, wasManager, mid);
-          renderTeamTab(); renderTeamsList();
-          showToast('Restored');
-        });
-        showToast(`Removed ${member.name}`, undoLast);
+        undoRemovePerson(removed);
+        showToast(`Removed ${removed.member.name}`, undoLast);
       });
     });
   });
