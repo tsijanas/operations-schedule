@@ -75,8 +75,10 @@
 
   <form id="auth-form">
     <div id="name-field" style="display:none;">
-      <label for="f-name">Your name</label>
-      <input type="text" id="f-name" autocomplete="name" placeholder="Jamie Rivera">
+      <label for="f-first-name">First name</label>
+      <input type="text" id="f-first-name" autocomplete="given-name" placeholder="Jamie">
+      <label for="f-last-name" style="margin-top:10px;">Surname</label>
+      <input type="text" id="f-last-name" autocomplete="family-name" placeholder="Rivera">
       <p style="font-size:11px; color:var(--ink-soft); margin:5px 0 0 0; line-height:1.4;">Make sure this is right — once your account's created, only a manager can change it.</p>
     </div>
     <label for="f-email">Email</label>
@@ -127,7 +129,8 @@
   let mode = 'signin'; // or 'signup'
   const form = document.getElementById('auth-form');
   const nameField = document.getElementById('name-field');
-  const nameInput = document.getElementById('f-name');
+  const firstNameInput = document.getElementById('f-first-name');
+  const lastNameInput = document.getElementById('f-last-name');
   const emailInput = document.getElementById('f-email');
   const passwordInput = document.getElementById('f-password');
   const errorBox = document.getElementById('form-error');
@@ -152,7 +155,11 @@
     emailInput.value = inviteEmail;
     emailInput.readOnly = true;
     emailInput.style.background = 'var(--paper)';
-    if(inviteName) nameInput.value = inviteName;
+    if(inviteName){
+      const parts = inviteName.trim().split(/\s+/);
+      firstNameInput.value = parts[0] || '';
+      lastNameInput.value = parts.slice(1).join(' ');
+    }
   } else if(isGroupInvite){
     isInvite = true;
   }
@@ -166,7 +173,8 @@
       ? (isPersonalInvite ? "You'll see your schedule right away — no waiting on approval." : "Sign up using the exact email your invite was sent to — you'll see your schedule right away, no waiting on approval.")
       : 'Enter your email and password to see your schedule.';
     nameField.style.display = signup ? 'block' : 'none';
-    nameInput.required = signup;
+    firstNameInput.required = signup;
+    lastNameInput.required = signup;
     passwordInput.setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
     submitBtn.textContent = signup ? 'Create account' : 'Sign in';
     document.getElementById('switch-text').textContent = signup ? 'Already have an account?' : 'New here?';
@@ -202,22 +210,19 @@
     const password = passwordInput.value;
     try{
       if(mode === 'signup'){
-        const name = nameInput.value.trim();
-        if(!name){
-          errorBox.textContent = 'Please enter your name.';
+        const firstName = firstNameInput.value.trim();
+        const lastName = lastNameInput.value.trim();
+        if(!firstName || !lastName){
+          errorBox.textContent = 'Please enter both your first name and surname.';
           errorBox.classList.add('show');
-          nameInput.focus();
+          (firstName ? lastNameInput : firstNameInput).focus();
           submitBtn.disabled = false;
           formSubmitInProgress = false;
           return;
         }
+        const name = `${firstName} ${lastName}`;
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(cred.user, { displayName: name });
-        // Record the signup request up front — index.html's access check will also do this
-        // as a fallback, but doing it here means the admin sees the right name immediately.
-        try{
-          await setDoc(doc(db, 'signup_requests', cred.user.uid), { name, email, createdAt: Date.now() });
-        }catch(err){ /* rules may reject this for a bootstrap-admin edge case; index.html handles it either way */ }
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }

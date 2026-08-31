@@ -64,6 +64,7 @@ service cloud.firestore {
         && (!('isAdmin' in d) || d.isAdmin is bool)
         && (!('role' in d) || d.role == null || d.role in ['admin','manager'])
         && (!('managerDeptId' in d) || d.managerDeptId == null || d.managerDeptId is string)
+        && (!('birthday' in d) || d.birthday == null || (d.birthday is string && d.birthday.size() == 5))
         && d.eligibility is map;
     }
     function isValidHoliday(d) {
@@ -255,6 +256,36 @@ service cloud.firestore {
         && request.resource.data.submittedBy == request.auth.uid
         && request.resource.data.status == 'backlog';
       allow update: if (isOwner() || isManagerUid()) && isValidIdea(request.resource.data);
+      allow delete: if isOwner() || isManagerUid();
+    }
+
+    // ---- Notifications: schedule-change alerts for a specific person, stored as a
+    // subcollection per member (notifications/{memberId}/items/{notifId}) rather than one
+    // flat collection filtered by a memberId field. That matters: a flat collection would
+    // need a query filtered on memberId while the read rule also depends on the caller's own
+    // claimed_links — the same shape as a real bug hit earlier, where Firestore can reject a
+    // multi-document query outright if its rule depends on more than the filtered field, even
+    // when the one matching document would itself be perfectly readable. Scoping by path
+    // instead sidesteps that: the subcollection IS the scope, so the rule doesn't need a
+    // where-filter to reason about at all.
+    function isOwnNotifPath(memberId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/claimed_links/$(request.auth.uid))
+        && get(/databases/$(database)/documents/claimed_links/$(request.auth.uid)).data.memberId == memberId;
+    }
+    match /notifications/{memberId}/items/{notifId} {
+      allow read: if isOwner() || isManagerUid() || isOwnNotifPath(memberId);
+      // Batched schedule-change notifications ("Send notifications") stay strictly
+      // Admin/Manager — that's the whole point of requiring their confirmation before sending.
+      // Instant OOO-coverage notifications are different: they can be triggered by a plain
+      // Viewer marking themselves off, so any approved (signed-in, not just admin) person may
+      // create one — but only that one narrow kind, never the batched kind. Worst-case misuse
+      // here is a misleading informational message, not a privilege or data-access issue —
+      // notifications don't grant access to anything.
+      allow create: if isOwner() || isManagerUid()
+        || (isApproved() && request.resource.data.kind == 'ooo_coverage');
+      allow update: if (isOwner() || isManagerUid())
+        || (isOwnNotifPath(memberId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
       allow delete: if isOwner() || isManagerUid();
     }
   }
