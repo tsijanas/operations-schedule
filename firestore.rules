@@ -35,9 +35,10 @@ service cloud.firestore {
 
     function isApproved() {
       return isOwner() || (
-        isSignedIn()
-        && exists(/databases/$(database)/documents/access_control/approved)
-        && request.auth.uid in approvedUids()
+        isSignedIn() && (
+          (exists(/databases/$(database)/documents/access_control/approved) && request.auth.uid in approvedUids())
+          || exists(/databases/$(database)/documents/claimed_links/$(request.auth.uid))
+        )
       );
     }
 
@@ -57,9 +58,13 @@ service cloud.firestore {
     // bypassed entirely (anyone can call the Firestore SDK directly from a browser console),
     // so validation has to live here to mean anything, not just in index.html's form code.
     function isValidMember(d) {
-      return d.name is string && d.name.size() > 0 && d.name.size() <= 100
+      return d.name is string && d.name.size() <= 100
         && d.levels is list && d.levels.size() <= 10
         && (d.teamId == null || d.teamId is string)
+        && (!('isAdmin' in d) || d.isAdmin is bool)
+        && (!('role' in d) || d.role == null || d.role in ['admin','manager'])
+        && (!('managerDeptId' in d) || d.managerDeptId == null || d.managerDeptId is string)
+        && (!('birthday' in d) || d.birthday == null || (d.birthday is string && d.birthday.size() == 5))
         && d.eligibility is map;
     }
     function isValidHoliday(d) {
@@ -78,14 +83,55 @@ service cloud.firestore {
       return d.value is string && d.value.size() < 900000;
     }
 
+    // ---- Proof of a self-claimed invite. When someone signs up with the same email an admin
+    // already pre-entered for them (an "invite"), they claim it (see member_contacts self-claim
+    // below) instead of being queued for approval. This doc is how that grants access: the
+    // rule verifies the linked member_contacts record really does show this exact uid+email
+    // before allowing the marker to be created — nobody can fabricate a claim for an invite
+    // that isn't genuinely theirs, since get() below reads the real, already-written record.
+    match /claimed_links/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isOwner() || isManagerUid() || (
+        isSignedIn() && request.auth.uid == uid
+        && get(/databases/$(database)/documents/member_contacts/$(request.resource.data.memberId)).data.authUid == request.auth.uid
+        && get(/databases/$(database)/documents/member_contacts/$(request.resource.data.memberId)).data.email == request.auth.token.email
+      );
+      allow delete: if isOwner() || isManagerUid();
+      allow update: if false;
+    }
+
+    // ---- Direct email -> memberId lookup, used only so login can find "does an invite exist
+    // for this email" with a single, unambiguous document read instead of a collection query.
+    // A query whose read rule depends on more than the filtered field can be rejected by
+    // Firestore outright, even when the one matching document would itself be perfectly
+    // readable — this index exists specifically to avoid depending on that working.
+    match /email_index/{emailKey} {
+      allow read: if isSignedIn();
+      allow write: if isOwner() || isManagerUid();
+    }
+
     // ---- Contact info (email, authUid), split out of app_members. Everyone approved can read
     // the roster (app_members) to see names/teams/schedules, but email addresses and the
     // technical auth-account link are Manager/owner-only — EXCEPT each person can look up their
     // own contact doc, constrained to a query on their own uid, which is how the app finds
     // "which member row is me" on login without needing broad read access. ----
     match /member_contacts/{memberId} {
-      allow read: if isOwner() || isManagerUid() || resource.data.authUid == request.auth.uid;
-      allow create, update: if (isOwner() || isManagerUid()) && isValidContact(request.resource.data);
+      allow read: if isOwner() || isManagerUid() || resource.data.authUid == request.auth.uid
+        || (isSignedIn() && resource.data.authUid == null && resource.data.email == request.auth.token.email);
+      allow create: if (isOwner() || isManagerUid()) && isValidContact(request.resource.data);
+      allow update: if isValidContact(request.resource.data) && (
+        isOwner() || isManagerUid()
+        || (
+          // Self-claim: a signed-in person may claim an unclaimed record that matches their
+          // own verified email, but only by setting authUid to exactly their own uid — the
+          // email itself can't change, and nothing else about the record can be touched this way.
+          isSignedIn()
+          && resource.data.authUid == null
+          && resource.data.email == request.auth.token.email
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.authUid == request.auth.uid
+        )
+      );
       allow delete: if isOwner() || isManagerUid();
     }
 
@@ -102,7 +148,22 @@ service cloud.firestore {
     // or the owner, enforced here, not just hidden behind a button in the UI.
     match /app_members/{memberId} {
       allow read: if isApproved();
-      allow create, update: if (isOwner() || isManagerUid()) && isValidMember(request.resource.data);
+      allow create: if (isOwner() || isManagerUid()) && isValidMember(request.resource.data);
+      allow update: if isValidMember(request.resource.data) && (
+        isOwner() || isManagerUid()
+        || (
+          // Self-claim name: someone who just registered via an email-only invite may set
+          // their own name — but only once (while it's still blank), only on the exact
+          // record they were just linked to, and this can never touch team, level, role, or
+          // eligibility — those stay admin-only, same as always.
+          isSignedIn()
+          && exists(/databases/$(database)/documents/claimed_links/$(request.auth.uid))
+          && get(/databases/$(database)/documents/claimed_links/$(request.auth.uid)).data.memberId == memberId
+          && resource.data.name == ''
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+          && request.resource.data.name.size() > 0
+        )
+      );
       allow delete: if isOwner() || isManagerUid();
     }
 
@@ -176,6 +237,56 @@ service cloud.firestore {
       allow create: if isApproved() && request.resource.data.actorUid == request.auth.uid;
       allow read: if isOwner() || isManagerUid();
       allow update, delete: if false;
+    }
+
+    // ---- Ideas & Bugs tracker: anyone approved can submit and read the list (so people
+    // closest to the actual work can flag what's needed), but only a Manager/owner can move
+    // something's status/priority or remove it — matches how triage/prioritization is a
+    // deliberate admin action everywhere else in this app.
+    function isValidIdea(d){
+      return d.type in ['idea','bug']
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 200
+        && (d.description == null || (d.description is string && d.description.size() <= 4000))
+        && d.status in ['backlog','in_progress','done']
+        && d.priority in ['low','medium','high'];
+    }
+    match /ideas_log/{ideaId} {
+      allow read: if isApproved();
+      allow create: if isApproved() && isValidIdea(request.resource.data)
+        && request.resource.data.submittedBy == request.auth.uid
+        && request.resource.data.status == 'backlog';
+      allow update: if (isOwner() || isManagerUid()) && isValidIdea(request.resource.data);
+      allow delete: if isOwner() || isManagerUid();
+    }
+
+    // ---- Notifications: schedule-change alerts for a specific person, stored as a
+    // subcollection per member (notifications/{memberId}/items/{notifId}) rather than one
+    // flat collection filtered by a memberId field. That matters: a flat collection would
+    // need a query filtered on memberId while the read rule also depends on the caller's own
+    // claimed_links — the same shape as a real bug hit earlier, where Firestore can reject a
+    // multi-document query outright if its rule depends on more than the filtered field, even
+    // when the one matching document would itself be perfectly readable. Scoping by path
+    // instead sidesteps that: the subcollection IS the scope, so the rule doesn't need a
+    // where-filter to reason about at all.
+    function isOwnNotifPath(memberId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/claimed_links/$(request.auth.uid))
+        && get(/databases/$(database)/documents/claimed_links/$(request.auth.uid)).data.memberId == memberId;
+    }
+    match /notifications/{memberId}/items/{notifId} {
+      allow read: if isOwner() || isManagerUid() || isOwnNotifPath(memberId);
+      // Batched schedule-change notifications ("Send notifications") stay strictly
+      // Admin/Manager — that's the whole point of requiring their confirmation before sending.
+      // Instant OOO-coverage notifications are different: they can be triggered by a plain
+      // Viewer marking themselves off, so any approved (signed-in, not just admin) person may
+      // create one — but only that one narrow kind, never the batched kind. Worst-case misuse
+      // here is a misleading informational message, not a privilege or data-access issue —
+      // notifications don't grant access to anything.
+      allow create: if isOwner() || isManagerUid()
+        || (isApproved() && request.resource.data.kind == 'ooo_coverage');
+      allow update: if (isOwner() || isManagerUid())
+        || (isOwnNotifPath(memberId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      allow delete: if isOwner() || isManagerUid();
     }
   }
 }
