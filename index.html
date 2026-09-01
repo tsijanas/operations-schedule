@@ -1964,22 +1964,25 @@ function renderDeptSetupCard(){
   const me = currentViewerMember();
   const isOrgAdmin = !!(me && (me.role==='admin' || me.isAdmin===true));
 
-  let listHtml = '';
-  if(state.departments.length > 0){
-    listHtml = state.departments.map(dept=>{
-      const teamsIn = state.teams.filter(t=>t.departmentId===dept.id);
-      return `<div style="border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;">
-        <div style="font-weight:700; font-size:13.5px; margin-bottom:4px;">${escHtml(dept.name)}</div>
-        <div class="muted" style="font-size:12px;">${teamsIn.length===0?'No teams yet — add one from Team & People\'s "+ Add team".':teamsIn.map(t=>escHtml(t.name)).join(', ')}</div>
-      </div>`;
-    }).join('');
-  }
+  const teamsSummary = dept=>{
+    const teamsIn = state.teams.filter(t=>t.departmentId===dept.id);
+    return teamsIn.length===0 ? 'No teams yet — add one from Team & People\'s "+ Add team".' : teamsIn.map(t=>escHtml(t.name)).join(', ');
+  };
 
   if(!isOrgAdmin){
+    const listHtml = state.departments.map(dept=> `<div style="border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;">
+      <div style="font-weight:700; font-size:13.5px; margin-bottom:4px;">${escHtml(dept.name)}</div>
+      <div class="muted" style="font-size:12px;">${teamsSummary(dept)}</div>
+    </div>`).join('');
     wrap.innerHTML = listHtml || `<div class="muted" style="font-size:12.5px;">No departments yet.</div>`
       + `<div class="muted" style="font-size:11.5px; margin-top:8px;">Only an Admin can create a new department — you can still create teams within your own from Team &amp; People.</div>`;
     return;
   }
+
+  const listHtml = state.departments.map(dept=> `<div style="border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;">
+    <input type="text" class="dept-name-edit" data-dept="${dept.id}" value="${escAttr(dept.name)}" style="font-weight:700; font-size:13.5px; border:none; background:none; padding:0; width:100%; margin-bottom:4px;">
+    <div class="muted" style="font-size:12px;">${teamsSummary(dept)}</div>
+  </div>`).join('');
 
   wrap.innerHTML = listHtml + `
     <div class="field" style="margin-top:${listHtml?'16px':'0'};">
@@ -2003,6 +2006,28 @@ function renderDeptSetupCard(){
     if(ok){ showToast(`Department "${deptName}" created`); logAudit('department.create', { name: deptName, showGrandViews }); }
     renderDeptSetupCard();
     renderTeamSwitcher();
+  });
+  wrap.querySelectorAll('.dept-name-edit').forEach(inp=>{
+    const saveIfChanged = async ()=>{
+      const dept = state.departments.find(d=>d.id===inp.dataset.dept);
+      if(!dept) return;
+      const newName = inp.value.trim();
+      if(!newName){ inp.value = dept.name; return; } // never save a blank name — just revert
+      if(newName === dept.name) return;
+      const oldName = dept.name;
+      dept.name = newName;
+      const ok = await safeSet('departments', state.departments);
+      if(ok){
+        showToast(`Renamed to "${newName}"`);
+        logAudit('department.rename', { from: oldName, to: newName });
+        renderTeamSwitcher(); // department name shows there too (picker + Grand tab labels)
+      } else {
+        dept.name = oldName; // roll back locally if the save itself failed
+        inp.value = oldName;
+      }
+    };
+    inp.addEventListener('blur', saveIfChanged);
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ inp.blur(); } });
   });
 }
 
